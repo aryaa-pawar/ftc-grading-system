@@ -1,9 +1,9 @@
 FROM php:8.2-apache
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libicu-dev libpng-dev libzip-dev libxml2-dev libonig-dev \
+    && apt-get install -y --no-install-recommends libicu-dev libpng-dev libzip-dev libxml2-dev libonig-dev libcurl4-openssl-dev \
     && docker-php-ext-configure gd \
-    && docker-php-ext-install pdo_mysql mbstring intl gd zip \
+    && docker-php-ext-install pdo_mysql mbstring intl gd zip curl \
     && a2dismod mpm_event mpm_worker \
     && a2enmod mpm_prefork rewrite \
     && apache2ctl configtest \

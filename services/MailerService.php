@@ -1,12 +1,7 @@
 <?php
 // services/MailerService.php
 
-require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/functions.php';
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception;
 
 class MailerService {
 
@@ -17,45 +12,66 @@ class MailerService {
         }
     }
 
-    private static function createMailer(): PHPMailer {
-        $mail = new PHPMailer(true);
+    private static function sendBrevoEmail(string $toEmail, string $toName, string $subject, string $htmlContent, string $failureLabel): bool {
+        $apiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY');
+        $senderEmail = $_ENV['MAIL_FROM_ADDRESS'] ?? getenv('MAIL_FROM_ADDRESS');
+        $senderName = $_ENV['MAIL_FROM_NAME'] ?? getenv('MAIL_FROM_NAME');
+        $logFile = __DIR__ . '/../storage/logs/app_error.log';
 
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host       = $_ENV['MAIL_HOST'] ?? getenv('MAIL_HOST');
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $_ENV['MAIL_USERNAME'] ?? getenv('MAIL_USERNAME');
-        $mail->Password   = $_ENV['MAIL_PASSWORD'] ?? getenv('MAIL_PASSWORD');
-        $mail->Port       = (int)($_ENV['MAIL_PORT'] ?? getenv('MAIL_PORT'));
-
-        $encryption = strtolower($_ENV['MAIL_ENCRYPTION'] ?? getenv('MAIL_ENCRYPTION'));
-        if ($encryption === 'tls') {
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        } elseif ($encryption === 'ssl') {
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        if (!is_string($apiKey) || trim($apiKey) === '' || !filter_var($senderEmail, FILTER_VALIDATE_EMAIL) || !is_string($senderName) || trim($senderName) === '') {
+            self::ensureLogDirectory();
+            error_log("{$failureLabel} configuration is missing or invalid.\n", 3, $logFile);
+            return false;
         }
 
-        $mail->CharSet = 'UTF-8';
-        $mail->setFrom(
-            $_ENV['MAIL_FROM_ADDRESS'] ?? getenv('MAIL_FROM_ADDRESS'),
-            $_ENV['MAIL_FROM_NAME'] ?? getenv('MAIL_FROM_NAME')
-        );
+        $payload = json_encode([
+            'sender' => ['name' => $senderName, 'email' => $senderEmail],
+            'to' => [['email' => $toEmail, 'name' => $toName]],
+            'subject' => $subject,
+            'htmlContent' => $htmlContent,
+        ], JSON_UNESCAPED_UNICODE);
 
-        return $mail;
+        if ($payload === false) {
+            self::ensureLogDirectory();
+            error_log("{$failureLabel} failed to encode request body.\n", 3, $logFile);
+            return false;
+        }
+
+        $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => ['api-key: ' . $apiKey, 'Content-Type: application/json', 'Accept: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+        ]);
+        $response = curl_exec($ch);
+        $curlError = curl_error($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+            return true;
+        }
+
+        $safeMessage = $curlError !== '' ? $curlError : 'Brevo API request failed';
+        if (is_string($response) && $response !== '') {
+            $decoded = json_decode($response, true);
+            if (is_array($decoded) && isset($decoded['message']) && is_string($decoded['message'])) {
+                $safeMessage = preg_replace('/[^\x20-\x7E]/', '', $decoded['message']);
+            }
+        }
+        self::ensureLogDirectory();
+        error_log("{$failureLabel} failed [HTTP {$httpCode}]: {$safeMessage}\n", 3, $logFile);
+        return false;
     }
 
     /**
      * Send OTP Verification Email
      */
     public static function sendOtpEmail(string $toEmail, string $toName, string $otpCode): bool {
-        $mail = null;
         try {
-            $mail = self::createMailer();
-            $mail->addAddress($toEmail, $toName);
-            $mail->isHTML(true);
-            $mail->Subject = 'IMD Portal - Your 2FA Login OTP Code';
-
-            $mail->Body = '
+            $htmlContent = '
             <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-top: 4px solid #003366; border-radius: 6px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <h2 style="color: #003366; margin-top: 0;">India Meteorological Department</h2>
@@ -70,12 +86,10 @@ class MailerService {
                 </div>
             </div>';
 
-            $mail->send();
-            return true;
+            return self::sendBrevoEmail($toEmail, $toName, 'IMD Portal - Your 2FA Login OTP Code', $htmlContent, 'OTP Mailer');
         } catch (Exception $e) {
-            $smtpError = $mail ? $mail->ErrorInfo : 'Mailer creation failed';
             self::ensureLogDirectory();
-            error_log("OTP Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . " | SMTP Error: " . $smtpError . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
+            error_log("OTP Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
     }
@@ -84,14 +98,8 @@ class MailerService {
      * Send Account Approval Email
      */
     public static function sendApprovalEmail(string $toEmail, string $toName): bool {
-        $mail = null;
         try {
-            $mail = self::createMailer();
-            $mail->addAddress($toEmail, $toName);
-            $mail->isHTML(true);
-            $mail->Subject = 'IMD Portal - Account Registration Approved';
-
-            $mail->Body = '
+            $htmlContent = '
             <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-top: 4px solid #28a745; border-radius: 6px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <h2 style="color: #003366; margin-top: 0;">Registration Approved</h2>
@@ -106,12 +114,10 @@ class MailerService {
                 </div>
             </div>';
 
-            $mail->send();
-            return true;
+            return self::sendBrevoEmail($toEmail, $toName, 'IMD Portal - Account Registration Approved', $htmlContent, 'Approval Mailer');
         } catch (Exception $e) {
-            $smtpError = $mail ? $mail->ErrorInfo : 'Mailer creation failed';
             self::ensureLogDirectory();
-            error_log("Approval Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . " | SMTP Error: " . $smtpError . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
+            error_log("Approval Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
     }
@@ -120,14 +126,8 @@ class MailerService {
      * Send Account Rejection Email
      */
     public static function sendRejectionEmail(string $toEmail, string $toName, string $reason): bool {
-        $mail = null;
         try {
-            $mail = self::createMailer();
-            $mail->addAddress($toEmail, $toName);
-            $mail->isHTML(true);
-            $mail->Subject = 'IMD Portal - Account Registration Update';
-
-            $mail->Body = '
+            $htmlContent = '
             <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-top: 4px solid #dc3545; border-radius: 6px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <h2 style="color: #dc3545; margin-top: 0;">Registration Status Update</h2>
@@ -142,12 +142,10 @@ class MailerService {
                 </div>
             </div>';
 
-            $mail->send();
-            return true;
+            return self::sendBrevoEmail($toEmail, $toName, 'IMD Portal - Account Registration Update', $htmlContent, 'Rejection Mailer');
         } catch (Exception $e) {
-            $smtpError = $mail ? $mail->ErrorInfo : 'Mailer creation failed';
             self::ensureLogDirectory();
-            error_log("Rejection Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . " | SMTP Error: " . $smtpError . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
+            error_log("Rejection Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
     }
