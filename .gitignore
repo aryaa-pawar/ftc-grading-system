@@ -1,0 +1,13 @@
+.env
+.env.*
+**/.env
+!.env.example
+*.log
+backups/
+.venv/
+structure.txt
+composer.phar
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/uploads/profile_photos/*
+!/storage/uploads/profile_photos/.gitkeep

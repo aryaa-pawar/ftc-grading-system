@@ -1,0 +1,45 @@
+.data-table-container {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.data-table th {
+    background: #1f4e79;
+    color: #ffffff;
+    padding: 12px;
+    text-align: left;
+}
+
+.data-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.data-table tr:hover {
+    background: #f7f9fb;
+}
+
+.table-action {
+    margin-right: 10px;
+}
+
+.action-view {
+    color: #1f4e79;
+}
+
+.action-edit {
+    color: #278a4b;
+}
+
+.action-delete {
+    color: #c0392b;
+}

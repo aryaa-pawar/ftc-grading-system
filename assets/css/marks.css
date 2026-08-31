@@ -1,0 +1,61 @@
+.marks-container {
+    padding: 30px;
+}
+
+.marks-title {
+    color: #1f4e79;
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.marks-subtitle {
+    color: #666;
+    margin-bottom: 25px;
+}
+
+.marks-card {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.marks-value {
+    font-weight: bold;
+}
+
+.marks-graded {
+    color: #278a4b;
+    font-weight: bold;
+}
+
+.marks-absent {
+    color: #c0392b;
+    font-weight: bold;
+}
+
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.audit-table th {
+    background: #1f4e79;
+    color: #ffffff;
+    padding: 12px;
+    text-align: left;
+}
+
+.audit-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.audit-old-mark {
+    color: #c0392b;
+}
+
+.audit-new-mark {
+    color: #278a4b;
+    font-weight: bold;
+}

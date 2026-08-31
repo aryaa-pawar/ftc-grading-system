@@ -1,0 +1,110 @@
+/* assets/css/style.css - IMD Portal Styling */
+
+:root {
+    --imd-navy: #003366;
+    --imd-navy-hover: #002244;
+    --imd-gold: #D4AF37;
+    --imd-light-bg: #f4f6f9;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--imd-light-bg);
+    color: #212529;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.bg-imd-navy {
+    background-color: var(--imd-navy) !important;
+}
+
+.text-imd-navy {
+    color: var(--imd-navy) !important;
+}
+
+.btn-imd {
+    background-color: var(--imd-navy);
+    color: #ffffff;
+    border: none;
+    font-weight: 500;
+}
+
+.btn-imd:hover {
+    background-color: var(--imd-navy-hover);
+    color: #ffffff;
+}
+
+/* Header & Banner */
+.portal-header {
+    background: linear-gradient(135deg, #003366 0%, #001f3f 100%);
+    color: white;
+    border-bottom: 4px solid var(--imd-gold);
+    padding: 1rem 0;
+}
+
+.portal-brand {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.portal-brand:hover {
+    color: #e0e0e0;
+}
+
+.gov-emblem-text {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--imd-gold);
+}
+
+/* Card Styling */
+.card-auth {
+    border: none;
+    border-top: 4px solid var(--imd-navy);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.card-dashboard {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Form Controls */
+.form-control:focus, .form-select:focus {
+    border-color: var(--imd-navy);
+    box-shadow: 0 0 0 0.25rem rgba(0, 51, 102, 0.25);
+}
+
+/* Badges */
+.badge-pending {
+    background-color: #ffc107;
+    color: #000;
+}
+.badge-active {
+    background-color: #198754;
+    color: #fff;
+}
+.badge-rejected {
+    background-color: #dc3545;
+    color: #fff;
+}
+.badge-suspended {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+    background-color: #001f3f;
+    color: #cbd5e1;
+    font-size: 0.875rem;
+    border-top: 2px solid var(--imd-gold);
+}

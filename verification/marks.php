@@ -1,0 +1,1375 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| FTC GRADING & TABULATION MANAGEMENT SYSTEM
+| VERIFICATION OFFICER - MARKS REVIEW (READ-ONLY)
+|--------------------------------------------------------------------------
+*/
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+require_once __DIR__ . "/../includes/auth.php";
+require_once __DIR__ . "/../includes/csrf.php";
+require_permission('verification.access');
+require_once __DIR__ . "/../config/database.php";
+
+$pageTitle = "Marks Review";
+$errorMessage = "";
+
+$batches = [];
+$students = [];
+$paperGroups = [];
+$studentSubjectMarks = [];
+$studentMarkEntries = [];
+$paperResults = [];
+
+$selectedBatchId = isset($_GET["batch_id"]) ? (int)$_GET["batch_id"] : 0;
+$isAjaxRequest = isset($_POST['ajax']) && $_POST['ajax'] === '1';
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_action'])) {
+    enforceCsrf();
+
+    $studentId = (int)($_POST['student_id'] ?? 0);
+    $entryId = (int)($_POST['entry_id'] ?? 0);
+    $subjectId = (int)($_POST['subject_id'] ?? 0);
+    $paperId = (int)($_POST['paper_id'] ?? 0);
+    $status = $_POST['verification_status'] ?? '';
+    $action = $_POST['verification_action'];
+    $returnBatchId = (int)($_POST['batch_id'] ?? 0);
+    $scrutinyReason = trim($_POST['scrutiny_reason'] ?? '');
+    $currentUser = current_user();
+
+    if ($action === 'confirm_student' && $studentId > 0 && $returnBatchId > 0) {
+        try {
+            $stmt = $pdo->prepare('UPDATE students SET verification_status = :status, scrutiny_remarks = :scrutiny_remarks WHERE student_id = :student_id AND batch_id = :batch_id');
+            $stmt->execute([
+                ':status' => 'correct',
+                ':scrutiny_remarks' => $scrutinyReason !== '' ? $scrutinyReason : null,
+                ':student_id' => $studentId,
+                ':batch_id' => $returnBatchId
+            ]);
+            if ($isAjaxRequest) {
+                header('Content-Type: application/json; charset=UTF-8');
+                echo json_encode(['success' => true, 'action' => $action, 'confirmed' => true]);
+                exit;
+            }
+        } catch (PDOException $e) {
+            $errorMessage = 'Unable to confirm student verification.';
+        }
+    }
+
+    if ($studentId > 0 && $entryId > 0 && $subjectId > 0 && $paperId > 0 && in_array($action, ['set_entry_status', 'notify_entry'], true) && in_array($status, ['correct', 'wrong'], true)) {
+        try {
+            $stmt = $pdo->prepare('SELECT verification_status FROM students WHERE student_id = :student_id AND batch_id = :batch_id');
+            $stmt->execute([
+                ':student_id' => $studentId,
+                ':batch_id' => $returnBatchId
+            ]);
+            if ($stmt->fetchColumn() === 'correct') {
+                throw new Exception('This student has already been confirmed and cannot be changed.');
+            }
+
+            $stmt = $pdo->prepare('SELECT fme.entry_id FROM faculty_marks_entry fme INNER JOIN students s ON s.student_id = fme.student_id WHERE fme.student_id = :student_id AND fme.subject_id = :subject_id AND COALESCE(fme.paper_id, 0) = :paper_id AND s.batch_id = :batch_id ORDER BY fme.assessment_type_id ASC');
+            $stmt->execute([
+                ':student_id' => $studentId,
+                ':subject_id' => $subjectId,
+                ':paper_id' => $paperId,
+                ':batch_id' => $returnBatchId
+            ]);
+            $subjectEntryIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+            if (!in_array($entryId, $subjectEntryIds, true)) {
+                throw new Exception('Selected subject mark was not found.');
+            }
+
+            if ($action === 'set_entry_status') {
+                $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
+                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = ?, verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders) AND verification_notified_at IS NULL");
+                $stmt->execute(array_merge([$status], $subjectEntryIds));
+            } elseif ($action === 'verify_recheck') {
+                $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
+                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders)");
+                $stmt->execute($subjectEntryIds);
+                $stmt = $pdo->prepare("UPDATE scrutiny_cases SET status = 'verified' WHERE student_id = :student_id AND subject_id = :subject_id AND status = 'awaiting_recheck'");
+                $stmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId]);
+                $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, verified_at = NOW() WHERE student_id = :student_id AND subject_id = :subject_id AND status = 'awaiting_recheck'");
+                $stmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId]);
+            } else {
+                $pdo->beginTransaction();
+                $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
+                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_notified_at = NOW() WHERE entry_id IN ($entryPlaceholders) AND verification_status = ? AND verification_notified_at IS NULL");
+                $stmt->execute(array_merge($subjectEntryIds, [$status]));
+                if ($stmt->rowCount() === 0) {
+                    throw new Exception('Select Correct or Wrong before notifying Admin.');
+                }
+                $stmt = $pdo->prepare("INSERT INTO admin_notifications (student_id, batch_id, entry_id, verification_status, message) VALUES (:student_id, :batch_id, :entry_id, :status, :message)");
+                $stmt->execute([
+                    ':student_id' => $studentId,
+                    ':batch_id' => $returnBatchId,
+                    ':entry_id' => $subjectEntryIds[0],
+                    ':status' => $status,
+                    ':message' => 'Verification completed for subject ' . $subjectId . ': ' . ucfirst($status) . '.'
+                ]);
+                $stmt = $pdo->prepare("INSERT INTO scrutiny_cases (student_id, subject_id, paper_id, entry_id, flagged_by_user_id, reason) VALUES (:student_id, :subject_id, :paper_id, :entry_id, :user_id, :reason)");
+                $stmt->execute([
+                    ':student_id' => $studentId,
+                    ':subject_id' => $subjectId,
+                    ':paper_id' => $paperId ?: null,
+                    ':entry_id' => $subjectEntryIds[0],
+                    ':user_id' => (int)($currentUser['user_id'] ?? 0),
+                    ':reason' => $scrutinyReason !== '' ? $scrutinyReason : 'Incorrect marks identified during scrutiny.'
+                ]);
+                $pdo->commit();
+            }
+            if ($isAjaxRequest) {
+                header('Content-Type: application/json; charset=UTF-8');
+                echo json_encode([
+                    'success' => true,
+                    'action' => $action,
+                    'status' => $status,
+                    'notified' => $action === 'notify_entry'
+                ]);
+                exit;
+            }
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $errorMessage = 'Unable to save verification status.';
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $errorMessage = $e->getMessage();
+        }
+    }
+
+    if ($studentId > 0 && $entryId > 0 && $subjectId > 0 && $paperId > 0 && $action === 'reopen_scrutiny') {
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare('SELECT fme.entry_id FROM faculty_marks_entry fme INNER JOIN students s ON s.student_id = fme.student_id WHERE fme.student_id = :student_id AND fme.subject_id = :subject_id AND COALESCE(fme.paper_id, 0) = :paper_id AND s.batch_id = :batch_id ORDER BY fme.assessment_type_id ASC');
+            $stmt->execute([
+                ':student_id' => $studentId,
+                ':subject_id' => $subjectId,
+                ':paper_id' => $paperId,
+                ':batch_id' => $returnBatchId
+            ]);
+            $subjectEntryIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+            if (!in_array($entryId, $subjectEntryIds, true) || !$subjectEntryIds) {
+                throw new Exception('Selected subject mark was not found.');
+            }
+
+            $placeholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
+            $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'wrong', verification_notified_at = NOW() WHERE entry_id IN ($placeholders)");
+            $stmt->execute($subjectEntryIds);
+
+            $stmt = $pdo->prepare("INSERT INTO admin_notifications (student_id, batch_id, entry_id, verification_status, message) VALUES (:student_id, :batch_id, :entry_id, 'wrong', :message)");
+            $stmt->execute([
+                ':student_id' => $studentId,
+                ':batch_id' => $returnBatchId,
+                ':entry_id' => $subjectEntryIds[0],
+                ':message' => 'Verification re-check found the subject still incorrect. Admin correction is required.'
+            ]);
+            $stmt = $pdo->prepare("INSERT INTO scrutiny_cases (student_id, subject_id, paper_id, entry_id, flagged_by_user_id, reason) VALUES (:student_id, :subject_id, :paper_id, :entry_id, :user_id, :reason)");
+            $stmt->execute([
+                ':student_id' => $studentId,
+                ':subject_id' => $subjectId,
+                ':paper_id' => $paperId,
+                ':entry_id' => $subjectEntryIds[0],
+                ':user_id' => (int)($currentUser['user_id'] ?? 0),
+                ':reason' => 'Verification re-check found the corrected subject marks are still not correct.'
+            ]);
+            $pdo->commit();
+
+            if ($isAjaxRequest) {
+                header('Content-Type: application/json; charset=UTF-8');
+                echo json_encode(['success' => true, 'action' => $action, 'reopened' => true]);
+                exit;
+            }
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $errorMessage = 'Unable to notify Admin for another correction.';
+        }
+    }
+
+    if ($isAjaxRequest) {
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode(['success' => false, 'message' => $errorMessage ?: 'Invalid verification request.']);
+        exit;
+    }
+}
+
+/* =========================================================
+   HELPER FUNCTIONS
+========================================================= */
+
+function h($value)
+{
+    return htmlspecialchars((string)($value ?? ""), ENT_QUOTES, "UTF-8");
+}
+
+function formatDateIndian($date)
+{
+    if (empty($date)) {
+        return "";
+    }
+    $timestamp = strtotime($date);
+    if ($timestamp === false) {
+        return $date;
+    }
+    return date("d.m.Y", $timestamp);
+}
+
+function displayMark($value)
+{
+    if ($value === null || $value === "") {
+        return "—";
+    }
+    return h($value);
+}
+
+function subjectReviewControls(array $entries, int $studentId, int $batchId, int $paperId, int $subjectId, bool $locked = false): string
+{
+    $latestScrutinyStatus = '';
+    foreach ($entries as $entry) {
+        if (!empty($entry['scrutiny_status'])) {
+            $latestScrutinyStatus = $entry['scrutiny_status'];
+            break;
+        }
+    }
+    if ($latestScrutinyStatus === 'verified') {
+        return '<span class="no-print verification-status" style="display:block;color:#087f3e;font-size:10px;font-weight:bold;">Confirmed</span>';
+    }
+    if ($latestScrutinyStatus === 'awaiting_recheck') {
+        $firstEntry = reset($entries);
+        $entryId = (int)($firstEntry['entry_id'] ?? 0);
+        return '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
+            . csrfField()
+            . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
+            . '<input type="hidden" name="student_id" value="' . $studentId . '">'
+            . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
+            . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
+            . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
+            . '<input type="hidden" name="verification_action" value="verify_recheck">'
+            . '<input type="hidden" name="ajax" value="1">'
+            . '<button type="submit" style="background:#087f3e;color:#fff;border:none;padding:2px 6px;font-size:10px;border-radius:3px;cursor:pointer;" title="Click to verify corrected marks">&#10003; Verify Re-check</button>'
+            . '</form>';
+    }
+
+    if ($locked) {
+        return '<span class="no-print verification-status" style="display:block;color:#1f4b73;font-size:10px;">Confirmed</span>';
+    }
+
+    if (empty($entries)) {
+        return '';
+    }
+
+    $status = '';
+    foreach ($entries as $entry) {
+        if (($entry['verification_status'] ?? '') === 'wrong') {
+            $status = 'wrong';
+            break;
+        }
+        if (($entry['verification_status'] ?? '') === 'correct') {
+            $status = 'correct';
+        }
+    }
+    if (count(array_filter($entries, function ($entry) {
+        return !empty($entry['verification_notified_at']);
+    })) === count($entries)) {
+        return '<span class="no-print" style="display:block;color:#1f4e79;font-size:10px;">Admin notified</span>';
+    }
+
+    $firstEntry = reset($entries);
+    $entryId = (int)$firstEntry['entry_id'];
+    $controls = '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
+        . csrfField()
+        . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
+        . '<input type="hidden" name="student_id" value="' . $studentId . '">'
+        . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
+        . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
+        . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
+        . '<input type="hidden" name="verification_status" value="' . h($status) . '">'
+        . '<input type="hidden" name="verification_action" value="set_entry_status">'
+        . '<input type="hidden" name="ajax" value="1">'
+        . '<input type="hidden" name="scrutiny_reason" value="">'
+        . '<button type="submit" name="verification_action" value="set_entry_status" title="Mark this subject correct" onclick="this.form.verification_status.value=\'correct\';">&#10003;</button>'
+        . '<button type="submit" name="verification_action" value="set_entry_status" title="Mark this subject wrong" onclick="this.form.verification_status.value=\'wrong\';">&#10007;</button>';
+    if ($status === 'wrong') {
+        $controls .= '<button type="submit" name="verification_action" value="notify_entry" title="Notify admin about this subject mark">Notify Admin</button>';
+    }
+    return $controls . '</form>'
+        . ($status === 'correct' ? '<span class="no-print verification-status" style="display:block;color:#087f3e;font-size:10px;">Correct</span>' : '')
+        . ($status === 'wrong' ? '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;">Wrong</span>' : '');
+}
+
+/* =========================================================
+   LOAD BATCHES
+========================================================= */
+
+try {
+    $stmt = $pdo->query("
+        SELECT
+            batch_id,
+            batch_name,
+            commenced_date,
+            completed_date,
+            station
+        FROM batches
+        ORDER BY batch_id ASC
+    ");
+    $batches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $errorMessage = "Unable to load batches: " . $e->getMessage();
+}
+
+if ($selectedBatchId <= 0 && !empty($batches)) {
+    $selectedBatchId = (int)$batches[0]["batch_id"];
+}
+
+$currentBatch = null;
+foreach ($batches as $batch) {
+    if ((int)$batch["batch_id"] === $selectedBatchId) {
+        $currentBatch = $batch;
+        break;
+    }
+}
+
+/* =========================================================
+   LOAD STUDENTS FOR BATCH
+========================================================= */
+
+if ($selectedBatchId > 0) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT
+                student_id,
+                roll_no,
+                student_name,
+                designation,
+                qualification,
+                rmc,
+                group_code,
+                scrutiny_remarks,
+                verification_status,
+                verification_notified_at
+            FROM students
+            WHERE batch_id = :batch_id
+              AND (is_deleted = 0 OR is_deleted IS NULL)
+            ORDER BY
+                roll_no ASC,
+                student_name ASC
+        ");
+        $stmt->execute([":batch_id" => $selectedBatchId]);
+        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $errorMessage = "Unable to load students: " . $e->getMessage();
+    }
+}
+
+/* =========================================================
+   LOAD PAPERS & MAPPED SUBJECTS (HIERARCHY)
+========================================================= */
+
+if ($selectedBatchId > 0) {
+    try {
+        // Load distinct papers mapped to this batch
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT
+                p.paper_id,
+                p.paper_code,
+                p.paper_name,
+                p.is_elective,
+                p.paper_type,
+                p.max_internal,
+                p.max_midterm,
+                p.max_final
+            FROM papers p
+            INNER JOIN paper_subject_mapping psm
+                ON psm.paper_id = p.paper_id
+            WHERE psm.batch_id = :batch_id
+            ORDER BY p.paper_id ASC
+        ");
+        $stmt->execute([":batch_id" => $selectedBatchId]);
+        $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Load mappings with subject details
+        $stmt = $pdo->prepare("
+            SELECT
+                psm.paper_id,
+                psm.subject_id,
+                psm.subject_weightage_pct,
+                psm.subject_max_internal,
+                psm.subject_max_midterm,
+                psm.subject_max_final,
+                s.subject_code,
+                s.subject_name,
+                s.is_elective
+            FROM paper_subject_mapping psm
+            INNER JOIN subjects s
+                ON s.subject_id = psm.subject_id
+            WHERE psm.batch_id = :batch_id
+            ORDER BY psm.paper_id ASC, s.subject_code ASC
+        ");
+        $stmt->execute([":batch_id" => $selectedBatchId]);
+        $mappings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($papers as $p) {
+            $pId = (int)$p['paper_id'];
+            $paperGroups[$pId] = [
+                'paper_id' => $pId,
+                'paper_code' => $p['paper_code'],
+                'paper_name' => $p['paper_name'],
+                'paper_type' => $p['paper_type'] ?? 'Theory',
+                'max_internal' => (float)$p['max_internal'],
+                'max_midterm' => (float)$p['max_midterm'],
+                'max_final' => (float)$p['max_final'],
+                'subjects' => []
+            ];
+        }
+
+        foreach ($mappings as $m) {
+            $pId = (int)$m['paper_id'];
+            if (isset($paperGroups[$pId])) {
+                $intMax = (float)($m['subject_max_internal'] > 0 ? $m['subject_max_internal'] : $paperGroups[$pId]['max_internal']);
+                $midMax = (float)($m['subject_max_midterm'] > 0 ? $m['subject_max_midterm'] : $paperGroups[$pId]['max_midterm']);
+                $finMax = (float)($m['subject_max_final'] > 0 ? $m['subject_max_final'] : $paperGroups[$pId]['max_final']);
+
+                $paperGroups[$pId]['subjects'][] = [
+                    'subject_id' => (int)$m['subject_id'],
+                    'subject_code' => $m['subject_code'],
+                    'subject_name' => $m['subject_name'],
+                    'is_elective' => $m['is_elective'],
+                    'max_internal' => $intMax,
+                    'max_midterm' => $midMax,
+                    'max_final' => $finMax,
+                    'max_total' => $intMax + $midMax + $finMax
+                ];
+            }
+        }
+
+        // Only keep papers with mapped subjects
+        $paperGroups = array_filter($paperGroups, function($pg) {
+            return !empty($pg['subjects']);
+        });
+
+        // Load elective subject group mappings
+        $electiveSubjectGroups = [];
+        try {
+            $esmRows = $pdo->query("SELECT group_code, subject_id FROM elective_subject_mapping")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($esmRows as $esm) {
+                $electiveSubjectGroups[(int)$esm['subject_id']][] = strtolower(trim($esm['group_code']));
+            }
+        } catch (PDOException $e) {}
+
+    } catch (PDOException $e) {
+        $errorMessage = "Unable to load papers & subject mappings: " . $e->getMessage();
+    }
+}
+
+/* =========================================================
+   LOAD STUDENT SUBJECT MARKS (PAPER-SCOPED)
+========================================================= */
+
+if ($selectedBatchId > 0 && !empty($students)) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT
+                 MAX(fme.entry_id) AS entry_id,
+                fme.student_id,
+                fme.subject_id,
+                COALESCE(fme.paper_id, 0) AS paper_id,
+                fme.assessment_type_id,
+                 MAX(fme.verification_status) AS verification_status,
+                                 MAX(fme.verification_notified_at) AS verification_notified_at,
+                                 (
+                                        SELECT sc.status
+                                        FROM scrutiny_cases sc
+                                        WHERE sc.student_id = fme.student_id
+                                            AND sc.subject_id = fme.subject_id
+                                            AND COALESCE(sc.paper_id, 0) = COALESCE(fme.paper_id, 0)
+                                        ORDER BY sc.case_id DESC
+                                        LIMIT 1
+                                 ) AS scrutiny_status,
+                COALESCE(
+                    (
+                        SELECT CEIL(scl.new_marks)
+                        FROM scrutiny_mark_change_log scl
+                        INNER JOIN faculty_marks_entry corrected_fme
+                            ON corrected_fme.entry_id = scl.entry_id
+                        WHERE scl.student_id = fme.student_id
+                          AND scl.subject_id = fme.subject_id
+                          AND COALESCE(corrected_fme.paper_id, 0) = COALESCE(MAX(fme.paper_id), 0)
+                          AND corrected_fme.assessment_type_id = fme.assessment_type_id
+                        ORDER BY scl.changed_at DESC, scl.change_id DESC
+                        LIMIT 1
+                    ),
+                    CASE
+                        WHEN COUNT(CASE WHEN fme.is_absent = 0 AND fme.marks_obtained IS NOT NULL THEN 1 END) > 0
+                        THEN CEIL(AVG(CASE WHEN fme.is_absent = 0 THEN CEIL(fme.marks_obtained) ELSE NULL END))
+                        ELSE 0
+                    END
+                ) AS score
+            FROM faculty_marks_entry fme
+            INNER JOIN students st
+                ON st.student_id = fme.student_id
+            WHERE st.batch_id = :batch_id
+              AND (st.is_deleted = 0 OR st.is_deleted IS NULL)
+              AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1)
+            GROUP BY fme.student_id, fme.subject_id, fme.paper_id, COALESCE(fme.paper_id, 0), fme.assessment_type_id
+        ");
+        $stmt->execute([":batch_id" => $selectedBatchId]);
+        $scoreRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($scoreRows as $sr) {
+            $stId = (int)$sr['student_id'];
+            $subId = (int)$sr['subject_id'];
+            $pId = (int)($sr['paper_id'] ?? 0);
+            $aId = (int)$sr['assessment_type_id'];
+            $studentSubjectMarks[$stId][$pId][$subId][$aId] = $sr['score'];
+                $studentMarkEntries[$stId][$pId][$subId][$aId] = $sr;
+        }
+    } catch (PDOException $e) {
+        $errorMessage = "Unable to load student marks: " . $e->getMessage();
+    }
+}
+
+/* =========================================================
+   LOAD RESULT REGISTER (GRAND TOTAL / PERCENTAGE / REMARKS)
+========================================================= */
+
+if ($selectedBatchId > 0 && !empty($students)) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT
+                rr.student_id,
+                rr.grand_total,
+                rr.max_possible_marks,
+                rr.percentage,
+                rr.remarks,
+                rr.custom_remarks
+            FROM v_result_register rr
+            INNER JOIN students s
+                ON s.student_id = rr.student_id
+            WHERE s.batch_id = :batch_id
+              AND (s.is_deleted = 0 OR s.is_deleted IS NULL)
+            ORDER BY s.roll_no ASC
+        ");
+        $stmt->execute([":batch_id" => $selectedBatchId]);
+        $resultRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($resultRows as $row) {
+            $paperResults[(int)$row["student_id"]] = $row;
+        }
+    } catch (PDOException $e) {
+        // v_result_register
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marks Review - Verification Officer</title>
+    <style>
+    .marks-page {
+        background: #f4f6f8;
+        min-height: 100vh;
+        padding: 30px;
+    }
+
+    .readonly-box {
+        background: #eef5fa;
+        border-left: 4px solid #1f4e79;
+        padding: 14px 18px;
+        margin-top: 15px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #1f4e79;
+    }
+
+    .readonly-box strong {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 3px;
+    }
+
+    .filter-box {
+        background: #ffffff;
+        border: 1px solid #d9d9d9;
+        padding: 20px 24px;
+        margin-top: 20px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 15px;
+    }
+
+    .filter-field {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .filter-field label {
+        font-size: 13px;
+        font-weight: bold;
+        color: #444444;
+        margin-bottom: 6px;
+    }
+
+    .select-box,
+    .date-box {
+        height: 38px;
+        border: 1px solid #cccccc;
+        border-radius: 4px;
+        padding: 0 12px;
+        font-size: 13px;
+        background: #ffffff;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+    }
+
+    .select-box {
+        min-width: 220px;
+    }
+
+    .date-box {
+        min-width: 130px;
+        background: #f9f9f9;
+        color: #555555;
+    }
+
+    .btn {
+        height: 38px;
+        border: none;
+        border-radius: 4px;
+        padding: 0 18px;
+        font-size: 13px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .view-btn {
+        background: #1f4e79;
+        color: #ffffff;
+    }
+
+    .view-btn:hover {
+        background: #173b5c;
+    }
+
+    .print-btn {
+        background: #555555;
+        color: #ffffff;
+    }
+
+    .print-btn:hover {
+        background: #333333;
+    }
+
+    .table-wrapper {
+        margin-top: 25px;
+        background: #ffffff;
+        border: 1px solid #777777;
+        overflow: auto;
+        width: 100%;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .tabulation-table {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: collapse;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12px;
+    }
+
+    .tabulation-table th,
+    .tabulation-table td {
+        border: 1px solid #555555;
+        padding: 7px 8px;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .tabulation-table thead th {
+        background: #1b4b73;
+        color: #ffffff;
+        font-weight: bold;
+    }
+
+    /* 1. TOP HEADER: PAPERS */
+    .paper-header {
+        background: #1b4b73 !important;
+        color: #ffffff !important;
+        font-size: 13px;
+        font-weight: bold;
+        padding: 8px 10px !important;
+        letter-spacing: 0.3px;
+    }
+
+    .paper-badge {
+        display: inline-block;
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: 6px;
+    }
+
+    /* 2. SUB-HEADER: SUBJECTS */
+    .subject-header {
+        background: #255b86 !important;
+        color: #ffffff !important;
+        font-size: 12px;
+        font-weight: bold;
+        padding: 7px 8px !important;
+    }
+
+    /* 3. LOWEST HEADER: ASSESSMENTS */
+    .assessment-header {
+        background: #376d96 !important;
+        color: #ffffff !important;
+        font-size: 11px;
+        padding: 6px 8px !important;
+    }
+
+    .assessment-header.total-col {
+        background: #2e5c80 !important;
+        font-weight: bold;
+    }
+
+    .maximum {
+        display: block;
+        font-size: 9px;
+        margin-top: 2px;
+        color: #ffffff;
+        opacity: 0.95;
+        font-weight: normal;
+    }
+
+    .student-header {
+        background: #1b4b73 !important;
+        color: #ffffff !important;
+    }
+
+    .student-info {
+        min-width: 180px;
+        text-align: left !important;
+    }
+
+    .roll-column {
+        min-width: 120px;
+    }
+
+    .grand-total-header,
+    .percentage-header,
+    .result-header,
+    .actions-header {
+        background: #1b4b73 !important;
+        color: #ffffff !important;
+    }
+
+    .tabulation-table tbody td {
+        background: #ffffff;
+        color: #111111;
+    }
+
+    .tabulation-table tbody tr:hover td {
+        background: #f4f8fb;
+    }
+
+    .mark-cell {
+        min-width: 55px;
+    }
+
+    .total-cell {
+        min-width: 60px;
+        font-weight: bold;
+        background: #eef5fa !important;
+        color: #1f4e79 !important;
+    }
+
+    .grand-total {
+        min-width: 75px;
+        font-weight: bold;
+        background: #e6f0fa !important;
+        color: #1b4b73 !important;
+        font-size: 13px;
+    }
+
+    .percentage {
+        min-width: 70px;
+        font-weight: bold;
+        background: #e6f0fa !important;
+        font-size: 13px;
+    }
+
+    .pass {
+        display: inline-block;
+        background: #d9f2df;
+        color: #146c2e;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+
+    .fail {
+        display: inline-block;
+        background: #f8d7da;
+        color: #a12622;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+
+    .action-cell {
+        min-width: 90px;
+    }
+
+    .action-btn {
+        display: inline-block;
+        padding: 5px 10px;
+        margin: 2px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .view-action {
+        background: #1f4e79;
+        color: #ffffff;
+    }
+
+    .empty {
+        text-align: center;
+        padding: 50px 20px;
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        margin-top: 25px;
+    }
+
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+    }
+    </style>
+</head>
+<body style="margin:0; font-family:Arial, sans-serif;">
+
+<div style="display:flex; flex-direction:column; min-height:100vh;">
+
+    <?php require_once __DIR__ . "/../includes/navbar.php"; ?>
+
+    <div style="display:flex; flex:1;">
+
+        <div class="no-print">
+            <?php require_once __DIR__ . "/../includes/verification_sidebar.php"; ?>
+        </div>
+
+        <main class="marks-page" style="flex:1;">
+
+            <div style="max-width:100%;">
+
+                <div class="no-print" style="margin-bottom:10px;">
+                    <h1 style="margin:0; font-size:26px; color:#1f4e79;">Marks Review (Verification Panel)</h1>
+                    <p style="margin:5px 0 0; color:#666666;">Comprehensive marks tabulation review for verification officers.</p>
+                </div>
+
+                <!-- READ ONLY NOTICE -->
+                <div class="readonly-box no-print">
+                    <strong>🔒 Read-Only Verification Mode</strong>
+                    <span>Marks displayed in this table are for verification and review only. Editing is not permitted from this panel.</span>
+                </div>
+
+                <?php if (!empty($errorMessage)): ?>
+                    <div style="padding:15px; background:#f8d7da; color:#721c24; border-radius:4px; margin-top:20px;">
+                        <?php echo h($errorMessage); ?>
+                    </div>
+                <?php endif; ?>
+
+                <!-- FILTER FORM -->
+                <div class="filter-box no-print">
+                    <form method="GET" action="">
+                        <div class="filter-row">
+
+                            <!-- BATCH SELECTOR -->
+                            <div class="filter-field">
+                                <label>Select Batch:</label>
+                                <select name="batch_id" class="select-box" onchange="this.form.submit()">
+                                    <?php foreach ($batches as $b): ?>
+                                        <option value="<?php echo (int)$b["batch_id"]; ?>" <?php echo ((int)$b["batch_id"] === $selectedBatchId) ? "selected" : ""; ?>>
+                                            <?php echo h($b["batch_name"]); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <!-- COMMENCED DATE -->
+                            <div class="filter-field">
+                                <label>Commenced:</label>
+                                <div class="date-box">
+                                    <?php echo formatDateIndian($currentBatch["commenced_date"] ?? ""); ?>
+                                </div>
+                            </div>
+
+                            <!-- COMPLETED DATE -->
+                            <div class="filter-field">
+                                <label>Completed:</label>
+                                <div class="date-box">
+                                    <?php echo formatDateIndian($currentBatch["completed_date"] ?? ""); ?>
+                                </div>
+                            </div>
+
+                            <!-- STATION -->
+                            <div class="filter-field">
+                                <label>Station:</label>
+                                <div class="date-box">
+                                    <?php echo h($currentBatch["station"] ?? ""); ?>
+                                </div>
+                            </div>
+
+                            <!-- VIEW BUTTON -->
+                            <button type="submit" class="btn view-btn">View</button>
+
+                            <!-- PRINT BUTTON -->
+                            <button type="button" class="btn print-btn" onclick="window.print()">Print</button>
+
+                        </div>
+                    </form>
+                </div>
+
+                <!-- BATCH DETAILS BANNER -->
+                <?php if ($currentBatch !== null): ?>
+                    <div style="background:#ffffff; border:1px solid #dddddd; padding:15px 18px; margin-top:20px; border-radius:6px;">
+                        <strong>FTC CLASS MARKS VERIFICATION REGISTER</strong>
+                        &nbsp; | &nbsp;
+                        Batch: <strong><?php echo h($currentBatch["batch_name"]); ?></strong>
+                        &nbsp; | &nbsp;
+                        Station: <strong><?php echo h($currentBatch["station"]); ?></strong>
+                    </div>
+                <?php endif; ?>
+
+                <!-- EMPTY STATES -->
+                <?php if ($currentBatch === null): ?>
+                    <div class="empty">
+                        <h2>Select a batch</h2>
+                    </div>
+                <?php elseif (empty($students)): ?>
+                    <div class="empty">
+                        <h2>No students found</h2>
+                        <p>This batch does not contain active students.</p>
+                    </div>
+                <?php elseif (empty($paperGroups)): ?>
+                    <div class="empty">
+                        <h2>No papers or subject mappings found</h2>
+                        <p>No paper mapping configured for this batch.</p>
+                    </div>
+                <?php else: ?>
+
+                    <!-- TABULATION TABLE -->
+                    <div class="table-wrapper">
+                        <table class="tabulation-table">
+                            <thead>
+
+                                <!-- =========================================================
+                                     HEADER ROW 1: S.NO, STUDENT INFO, PAPER NAMES (TOP-LEVEL)
+                                ========================================================= -->
+                                <tr>
+                                    <th rowspan="3" class="student-header">S. No.</th>
+                                    <th rowspan="3" class="student-header student-info">Name<br>Designation</th>
+                                    <th rowspan="3" class="student-header student-info">Qualification</th>
+                                    <th rowspan="3" class="student-header roll-column">Roll No.</th>
+
+                                    <?php foreach ($paperGroups as $pg): ?>
+                                        <?php 
+                                            // 4 columns per subject (Internal, Mid-Term, Final, Total)
+                                            $paperColspan = count($pg['subjects']) * 4; 
+                                        ?>
+                                        <th colspan="<?php echo $paperColspan; ?>" class="paper-header">
+                                            [<?php echo h($pg['paper_code']); ?>] <?php echo h($pg['paper_name']); ?>
+                                            <span class="paper-badge"><?php echo h($pg['paper_type']); ?></span>
+                                        </th>
+                                    <?php endforeach; ?>
+
+                                    <th rowspan="3" class="grand-total-header">Grand Total</th>
+                                    <th rowspan="3" class="percentage-header">Percentage</th>
+                                    <th rowspan="3" class="result-header">Result</th>
+                                    <th rowspan="3" class="result-header no-print">Remark</th>
+                                    <th rowspan="3" class="result-header no-print">Confirm</th>
+                                </tr>
+
+                                <!-- =========================================================
+                                     HEADER ROW 2: SUBJECT NAMES (UNDER EACH PAPER)
+                                ========================================================= -->
+                                <tr>
+                                    <?php foreach ($paperGroups as $pg): ?>
+                                        <?php foreach ($pg['subjects'] as $sub): ?>
+                                            <th colspan="4" class="subject-header">
+                                                [<?php echo h($sub['subject_code']); ?>] <?php echo h($sub['subject_name']); ?>
+                                            </th>
+                                        <?php endforeach; ?>
+                                    <?php endforeach; ?>
+                                </tr>
+
+                                <!-- =========================================================
+                                     HEADER ROW 3: INTERNAL, MID-TERM, FINAL, TOTAL WITH MAX MARKS
+                                ========================================================= -->
+                                <tr>
+                                    <?php foreach ($paperGroups as $pg): ?>
+                                        <?php foreach ($pg['subjects'] as $sub): ?>
+                                            <th class="assessment-header">
+                                                Internal
+                                                <span class="maximum"><?php echo number_format($sub['max_internal'], 2); ?></span>
+                                            </th>
+                                            <th class="assessment-header">
+                                                Mid-Term
+                                                <span class="maximum"><?php echo number_format($sub['max_midterm'], 2); ?></span>
+                                            </th>
+                                            <th class="assessment-header">
+                                                Final
+                                                <span class="maximum"><?php echo number_format($sub['max_final'], 2); ?></span>
+                                            </th>
+                                            <th class="assessment-header total-col">
+                                                Total
+                                                <span class="maximum"><?php echo number_format($sub['max_total'], 2); ?></span>
+                                            </th>
+                                        <?php endforeach; ?>
+                                    <?php endforeach; ?>
+                                </tr>
+
+                            </thead>
+
+                            <!-- =========================================================
+                                 TABLE BODY: STUDENT MARKS DATA
+                            ========================================================= -->
+                            <tbody>
+                                <?php $serialNo = 1; ?>
+                                <?php foreach ($students as $student): ?>
+                                    <?php
+                                        $studentId = (int)$student["student_id"];
+                                        $hasAnyMark = false;
+                                        $isStudentVerified = ($student['verification_status'] ?? '') === 'correct';
+
+                                        $hasPendingNotifiedChanges = false;
+                                        if (isset($studentMarkEntries[$studentId])) {
+                                            foreach ($studentMarkEntries[$studentId] as $paperEntries) {
+                                                foreach ($paperEntries as $subEntries) {
+                                                    foreach ($subEntries as $entry) {
+                                                        if (!empty($entry['verification_notified_at']) || ($entry['verification_status'] ?? '') === 'wrong' || in_array(($entry['scrutiny_status'] ?? ''), ['awaiting_admin', 'awaiting_recheck', 'open'], true)) {
+                                                            $hasPendingNotifiedChanges = true;
+                                                            break 3;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ?>
+                                    <tr>
+                                        <!-- S.NO -->
+                                        <td><?php echo $serialNo++; ?></td>
+
+                                        <!-- NAME + DESIGNATION -->
+                                        <td class="student-info">
+                                            <strong><?php echo h($student["student_name"]); ?></strong>
+                                            <br>
+                                            <small style="color:#666;"><?php echo h($student["designation"]); ?></small>
+                                        </td>
+
+                                        <!-- QUALIFICATION -->
+                                        <td class="student-info">
+                                            <?php echo h($student["qualification"]); ?>
+                                        </td>
+
+                                        <!-- ROLL NO -->
+                                        <td style="font-weight:bold; color:#1f4e79;">
+                                            <?php echo h($student["roll_no"]); ?>
+                                        </td>
+
+                                        <!-- MARKS PER PAPER & SUBJECT -->
+                                        <?php foreach ($paperGroups as $pg): ?>
+                                            <?php foreach ($pg['subjects'] as $sub): ?>
+                                                <?php
+                                                    $pId = (int)$pg['paper_id'];
+                                                    $subId = (int)$sub['subject_id'];
+                                                    $isElectiveSub = (int)($sub['is_elective'] ?? 0) === 1;
+                                                    $studentGroup = strtolower(trim($student['group_code'] ?? ''));
+                                                    $allowedSubGroups = $electiveSubjectGroups[$subId] ?? [];
+
+                                                    $isApplicable = true;
+                                                    if ($isElectiveSub && !empty($allowedSubGroups)) {
+                                                        if (!in_array($studentGroup, $allowedSubGroups, true)) {
+                                                            $isApplicable = false;
+                                                        }
+                                                    }
+
+                                                    $subTotal = null;
+                                                    if ($isApplicable) {
+                                                        $intMark = $studentSubjectMarks[$studentId][$pId][$subId][1] ?? null;
+                                                        $midMark = $studentSubjectMarks[$studentId][$pId][$subId][2] ?? null;
+                                                        $finMark = $studentSubjectMarks[$studentId][$pId][$subId][3] ?? null;
+
+                                                        if ($intMark !== null || $midMark !== null || $finMark !== null) {
+                                                            $hasAnyMark = true;
+                                                            $intVal = (is_numeric($intMark)) ? (float)$intMark : 0;
+                                                            $midVal = (is_numeric($midMark)) ? (float)$midMark : 0;
+                                                            $finVal = (is_numeric($finMark)) ? (float)$finMark : 0;
+                                                            $subTotal = $intVal + $midVal + $finVal;
+                                                        }
+                                                    }
+                                                ?>
+                                                <?php if (!$isApplicable): ?>
+                                                    <td class="mark-cell" style="color:#bbb; background:#fafafa; font-size:11px;" title="Not in student's elective group">N/A</td>
+                                                    <td class="mark-cell" style="color:#bbb; background:#fafafa; font-size:11px;" title="Not in student's elective group">N/A</td>
+                                                    <td class="mark-cell" style="color:#bbb; background:#fafafa; font-size:11px;" title="Not in student's elective group">N/A</td>
+                                                    <td class="total-cell" style="color:#bbb; background:#fafafa; font-size:11px;">N/A</td>
+                                                <?php else: ?>
+                                                    <?php $subjectEntries = $studentMarkEntries[$studentId][$pId][$subId] ?? []; ?>
+                                                    <td class="mark-cell"><?php echo displayMark($intMark ?? null); ?></td>
+                                                    <td class="mark-cell"><?php echo displayMark($midMark ?? null); ?></td>
+                                                    <td class="mark-cell"><?php echo displayMark($finMark ?? null); ?></td>
+                                                    <td class="total-cell"><?php echo displayMark($subTotal !== null ? number_format($subTotal, 2) : null); ?><?php echo subjectReviewControls($subjectEntries, $studentId, $selectedBatchId, $pId, $subId, $isStudentVerified); ?></td>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        <?php endforeach; ?>
+
+                                        <?php
+                                            // Results & Percentage — sourced from v_result_register (DB view)
+                                            $resultInfo = $paperResults[$studentId] ?? [];
+                                            $grandTotal = isset($resultInfo["grand_total"]) ? (float)$resultInfo["grand_total"] : null;
+                                            $percentage  = isset($resultInfo["percentage"])  ? (float)$resultInfo["percentage"]  : null;
+                                            if (!$hasAnyMark) {
+                                                $grandTotal = null;
+                                                $percentage = null;
+                                            }
+                                        ?>
+
+                                        <!-- GRAND TOTAL -->
+                                        <td class="grand-total">
+                                            <?php echo displayMark($grandTotal !== null ? number_format((float)$grandTotal, 2) : null); ?>
+                                        </td>
+
+                                        <!-- PERCENTAGE -->
+                                        <td class="percentage">
+                                            <?php echo ($percentage !== null) ? number_format((float)$percentage, 2) . "%" : "—"; ?>
+                                        </td>
+
+                                        <!-- RESULT -->
+                                        <td>
+                                            <?php if ($percentage === null): ?>
+                                                —
+                                            <?php elseif ((float)$percentage >= 50): ?>
+                                                <span class="pass">PASS</span>
+                                            <?php else: ?>
+                                                <span class="fail">FAIL</span>
+                                            <?php endif; ?>
+                                        </td>
+
+                                        <!-- REMARK COLUMN -->
+                                        <td class="no-print" style="white-space:nowrap; text-align:center; padding:6px;">
+                                            <input 
+                                                type="text" 
+                                                id="scrutiny-reason-<?php echo $studentId; ?>" 
+                                                class="scrutiny-remark-input" 
+                                                placeholder="Enter remark..." 
+                                                value="<?php echo h($student['scrutiny_remarks'] ?? ''); ?>"
+                                                <?php echo $isStudentVerified ? 'disabled' : ''; ?> 
+                                                style="width:160px; padding:6px 8px; font-size:12px; border:1px solid #ccc; border-radius:4px;"
+                                            >
+                                        </td>
+
+                                        <!-- CONFIRM COLUMN -->
+                                        <td class="no-print" style="white-space:nowrap; text-align:center; padding:6px;">
+                                            <?php if ($isStudentVerified): ?>
+                                                <span class="student-confirmed" style="display:inline-block; padding:5px 12px; background:#e8f4ec; color:#087f3e; font-size:12px; font-weight:bold; border-radius:4px;">Confirmed</span>
+                                            <?php else: ?>
+                                                <form method="POST" class="no-print confirm-student-form" style="margin:0;">
+                                                    <?php echo csrfField(); ?>
+                                                    <input type="hidden" name="student_id" value="<?php echo $studentId; ?>">
+                                                    <input type="hidden" name="batch_id" value="<?php echo $selectedBatchId; ?>">
+                                                    <input type="hidden" name="verification_action" value="confirm_student">
+                                                    <input type="hidden" name="ajax" value="1">
+                                                    <button 
+                                                        type="submit" 
+                                                        class="confirm-student-btn"
+                                                        <?php echo $hasPendingNotifiedChanges ? 'disabled title="Disabled until admin makes the notified changes from admin panel"' : ''; ?>
+                                                        style="padding:6px 14px; font-size:12px; font-weight:bold; border-radius:4px; border:none; cursor:<?php echo $hasPendingNotifiedChanges ? 'not-allowed' : 'pointer'; ?>; background:<?php echo $hasPendingNotifiedChanges ? '#cccccc' : '#1f4e79'; ?>; color:<?php echo $hasPendingNotifiedChanges ? '#666666' : '#ffffff'; ?>;"
+                                                    >
+                                                        Confirm
+                                                    </button>
+                                                </form>
+                                                <?php if ($hasPendingNotifiedChanges): ?>
+                                                    <small class="pending-admin-hint" style="display:block; color:#d9534f; font-size:10px; margin-top:3px; font-weight:bold;">Awaiting Admin Changes</small>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                        </td>
+
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+
+                        </table>
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <?php require_once __DIR__ . "/../includes/footer.php"; ?>
+
+</div>
+
+</body>
+<script>
+    function updateStudentConfirmation(row) {
+        var confirmButton = row.querySelector('.confirm-student-btn');
+        if (!confirmButton) {
+            return;
+        }
+
+        var hasNotifiedOrWrong = Array.from(row.querySelectorAll('.verification-status, small')).some(function (el) {
+            var txt = el.textContent.trim();
+            return txt === 'Wrong' || txt === 'Admin notified' || txt === 'Awaiting Re-check';
+        });
+
+        if (hasNotifiedOrWrong) {
+            confirmButton.disabled = true;
+            confirmButton.style.cursor = 'not-allowed';
+            confirmButton.style.background = '#cccccc';
+            confirmButton.style.color = '#666666';
+            confirmButton.title = 'Disabled until admin makes the notified changes from admin panel';
+            var hint = row.querySelector('.pending-admin-hint');
+            if (!hint) {
+                hint = document.createElement('small');
+                hint.className = 'pending-admin-hint';
+                hint.style.cssText = 'display:block; color:#d9534f; font-size:10px; margin-top:3px; font-weight:bold;';
+                hint.textContent = 'Awaiting Admin Changes';
+                confirmButton.after(hint);
+            }
+        } else {
+            confirmButton.disabled = false;
+            confirmButton.style.cursor = 'pointer';
+            confirmButton.style.background = '#1f4e79';
+            confirmButton.style.color = '#ffffff';
+            confirmButton.title = 'Confirm student verification';
+            var hint = row.querySelector('.pending-admin-hint');
+            if (hint) {
+                hint.remove();
+            }
+        }
+    }
+
+    document.querySelectorAll('.tabulation-table tbody tr').forEach(updateStudentConfirmation);
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target.closest('form');
+        if (!form || !form.querySelector('input[name="verification_action"]')) {
+            return;
+        }
+
+        event.preventDefault();
+        var submitButton = event.submitter;
+        if (submitButton && submitButton.name === 'verification_action') {
+            form.querySelector('input[name="verification_action"]').value = submitButton.value;
+        }
+
+        var studentIdInput = form.querySelector('input[name="student_id"]');
+        var scrutinyReasonInput = form.querySelector('input[name="scrutiny_reason"]');
+        var studentRemark = studentIdInput
+            ? document.getElementById('scrutiny-reason-' + studentIdInput.value)
+            : null;
+        if (scrutinyReasonInput) {
+            scrutinyReasonInput.value = studentRemark ? studentRemark.value : '';
+        }
+
+        fetch(form.action || window.location.href, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+            .then(function (response) { return response.json(); })
+            .then(function (result) {
+                if (!result.success) {
+                    window.alert(result.message || 'Unable to save verification status.');
+                    return;
+                }
+
+                if (result.confirmed) {
+                    var confirmedRow = form.closest('tr');
+                    confirmedRow.classList.add('student-confirmed-row');
+                    confirmedRow.querySelectorAll('form.subject-review-form, input.scrutiny-remark-input, .verification-status, .pending-admin-hint').forEach(function (control) {
+                        control.disabled = true;
+                        if (control.tagName === 'FORM' || control.classList.contains('verification-status') || control.classList.contains('pending-admin-hint')) {
+                            control.remove();
+                        }
+                    });
+                    var confirmCell = confirmedRow.cells[confirmedRow.cells.length - 1];
+                    confirmCell.innerHTML = '<span class="student-confirmed" style="display:inline-block; padding:5px 12px; background:#e8f4ec; color:#087f3e; font-size:12px; font-weight:bold; border-radius:4px;">Confirmed</span>';
+                    return;
+                }
+
+                if (result.reopened) {
+                    form.outerHTML = '<span class="no-print" style="display:block;color:#1f4b73;font-size:10px;">Admin notified</span>';
+                    return;
+                }
+
+                if (result.notified) {
+                    var existingStatusLabel = form.nextElementSibling;
+                    if (existingStatusLabel && existingStatusLabel.classList.contains('verification-status')) {
+                        existingStatusLabel.remove();
+                    }
+                    form.outerHTML = '<span class="no-print" style="display:block;color:#1f4e79;font-size:10px;">Admin notified</span>';
+                    return;
+                }
+
+                form.querySelector('input[name="verification_status"]').value = result.status;
+                var statusLabel = form.nextElementSibling;
+                if (statusLabel && statusLabel.classList.contains('verification-status')) {
+                    statusLabel.remove();
+                }
+                statusLabel = document.createElement('span');
+                statusLabel.className = 'no-print verification-status';
+                statusLabel.style.cssText = 'display:block;font-size:10px;color:' + (result.status === 'correct' ? '#087f3e' : '#b02a37') + ';';
+                statusLabel.textContent = result.status === 'correct' ? 'Correct' : 'Wrong';
+                form.after(statusLabel);
+
+                var notifyButton = form.querySelector('button[value="notify_entry"]');
+                if (result.status === 'wrong' && !notifyButton) {
+                    notifyButton = document.createElement('button');
+                    notifyButton.type = 'submit';
+                    notifyButton.name = 'verification_action';
+                    notifyButton.value = 'notify_entry';
+                    notifyButton.title = 'Notify admin about this subject mark';
+                    notifyButton.textContent = 'Notify Admin';
+                    form.appendChild(notifyButton);
+                } else if (result.status !== 'wrong' && notifyButton) {
+                    notifyButton.remove();
+                }
+                updateStudentConfirmation(form.closest('tr'));
+            })
+            .catch(function () {
+                window.alert('Unable to save verification status.');
+            });
+    });
+</script>
+</html>

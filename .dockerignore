@@ -1,0 +1,10 @@
+.git
+.env
+**/.env
+*.log
+backups/
+.venv/
+structure.txt
+composer.phar
+imdAuth/vendor/
+storage/logs/

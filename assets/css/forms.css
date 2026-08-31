@@ -1,0 +1,78 @@
+.form-container {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 8px;
+    max-width: 700px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #1f4e79;
+}
+
+.btn {
+    display: inline-block;
+    padding: 11px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: #1f4e79;
+    color: #ffffff;
+}
+
+.btn-success {
+    background: #278a4b;
+    color: #ffffff;
+}
+
+.btn-danger {
+    background: #c0392b;
+    color: #ffffff;
+}
+
+.btn-secondary {
+    background: #777777;
+    color: #ffffff;
+}
+
+.error-message {
+    background: #fdecea;
+    color: #a12622;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.success-message {
+    background: #eaf7ee;
+    color: #278a4b;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}

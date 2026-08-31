@@ -1,0 +1,55 @@
+<?php
+
+require_once __DIR__ . '/../includes/auth.php';
+
+if (empty($_SESSION['pending_2fa_user_id'])) {
+    auth_redirect('teacher/login.php?error=Session+expired');
+}
+
+$pdo = getDbConnection();
+$userId = (int)$_SESSION['pending_2fa_user_id'];
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $code = trim($_POST['otp_code'] ?? '');
+    $stmt = $pdo->prepare('SELECT * FROM otp_verifications WHERE user_id = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1');
+    $stmt->execute([$userId]);
+    $otp = $stmt->fetch();
+
+    if (!preg_match('/^\d{6}$/', $code) || !$otp || strtotime($otp['expires_at']) < time()) {
+        $error = 'The OTP is invalid or expired.';
+    } elseif (!hash_equals($otp['otp_code_hash'], hash('sha256', $code))) {
+        $attempts = (int)$otp['attempts'] + 1;
+        $pdo->prepare('UPDATE otp_verifications SET attempts = ?, is_used = ? WHERE otp_id = ?')
+            ->execute([$attempts, $attempts >= 3 ? 1 : 0, $otp['otp_id']]);
+        $error = $attempts >= 3 ? 'Too many attempts. Please log in again.' : 'Invalid OTP.';
+    } else {
+        $pdo->prepare('UPDATE otp_verifications SET is_used = 1 WHERE otp_id = ?')->execute([$otp['otp_id']]);
+        $stmt = $pdo->prepare('SELECT u.*, r.role_name, p.full_name, f.faculty_id, f.faculty_name FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN profiles p ON p.user_id = u.user_id LEFT JOIN faculties f ON f.user_id = u.user_id WHERE u.user_id = ?');
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        if (!$user || $user['account_status'] !== 'active') {
+            $error = 'This account is no longer active.';
+        } else {
+            establish_user_session($user, $user['faculty_id'] ? $user : null);
+            unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_email'], $_SESSION['pending_2fa_name']);
+            auth_redirect($user['role_name'] === 'guide' ? 'teacher/dashboard.php' : 'admin/dashboard.php');
+        }
+    }
+}
+?>
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify OTP</title></head>
+<body>
+<main>
+    <h1>Verify OTP</h1>
+    <?php if ($error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+    <form method="post">
+        <label for="otp_code">6-digit OTP</label>
+        <input id="otp_code" name="otp_code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus>
+        <button type="submit">Verify</button>
+    </form>
+</main>
+</body>
+</html>

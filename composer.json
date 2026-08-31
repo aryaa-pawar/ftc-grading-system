@@ -1,0 +1,17 @@
+{
+    "name": "imd/ftc-grading-system",
+    "description": "IMD FTC Grading & Tabulation Management System",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.0",
+        "phpmailer/phpmailer": "^6.8",
+        "vlucas/phpdotenv": "^5.5",
+        "phpoffice/phpspreadsheet": "^2.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}
