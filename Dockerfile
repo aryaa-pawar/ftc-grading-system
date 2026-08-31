@@ -4,7 +4,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libicu-dev libpng-dev libzip-dev libxml2-dev libonig-dev \
     && docker-php-ext-configure gd \
     && docker-php-ext-install pdo_mysql mbstring intl gd zip \
-    && a2enmod rewrite \
+    && a2dismod mpm_event mpm_worker \
+    && a2enmod mpm_prefork rewrite \
+    && apache2ctl configtest \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
