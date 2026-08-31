@@ -1,7 +1,7 @@
 <?php
 // services/MailerService.php
 
-require_once __DIR__ . '/../imdAuth/vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -143,4 +143,3 @@ class MailerService {
     }
 
 }
-
