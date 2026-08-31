@@ -689,13 +689,13 @@ ini_set('display_errors', 1);
     <div style="margin: 10px 0;">
         <span style="font-weight: bold; color: #444; display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-size: 12px;">Built by</span>
         <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <a href="https://www.linkedin.com/in/arya-pawar-34237a326/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">Arya Pawar</a>
+            <a href="https://www.linkedin.com/in/arya-pawar-34237a326/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Arya Pawar</a>
             <span style="color: #ccc;">|</span>
-            <a href="https://www.linkedin.com/in/anushka-patil-42585832a/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">Anushka Patil</a>
+            <a href="https://www.linkedin.com/in/anushka-patil-42585832a/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Anushka Patil</a>
             <span style="color: #ccc;">|</span>
-            <a href="https://www.linkedin.com/in/samarth-bidkar-24nov2005/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">Samarth Bidkar</a>
+            <a href="https://www.linkedin.com/in/samarth-bidkar-24nov2005/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Samarth Bidkar</a>
             <span style="color: #ccc;">|</span>
-            <a href="https://www.linkedin.com/in/nidhish-chincholkar-881821343/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">Nidhish Chincholkar</a>
+            <a href="https://www.linkedin.com/in/nidhish-chincholkar-881821343/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">Nidhish Chincholkar</a>
         </div>
     </div>
 
