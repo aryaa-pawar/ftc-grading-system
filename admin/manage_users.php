@@ -257,7 +257,7 @@ $pageTitle = 'Manage Users';
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <?php if (!empty($u['photo_path'])): ?>
-                                                <img src="<?= baseUrl('serve_photo.php?file=' . urlencode($u['photo_path'])) ?>" class="rounded-circle" width="40" height="40" style="object-fit: cover;">
+                                                <img src="<?= baseUrl('serve_photo.php?file=' . urlencode(basename($u['photo_path']))) ?>" class="rounded-circle" width="40" height="40" style="object-fit: cover;">
                                             <?php else: ?>
                                                 <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">
                                                     <?= strtoupper(substr($u['full_name'] ?? 'U', 0, 1)) ?>
@@ -308,7 +308,7 @@ $pageTitle = 'Manage Users';
                                                 <div class="row mb-4">
                                                     <div class="col-md-3 text-center">
                                                         <?php if (!empty($u['photo_path'])): ?>
-                                                            <img src="<?= baseUrl('serve_photo.php?file=' . urlencode($u['photo_path'])) ?>" class="rounded-circle border mb-2" width="100" height="100" style="object-fit: cover;">
+                                                            <img src="<?= baseUrl('serve_photo.php?file=' . urlencode(basename($u['photo_path']))) ?>" class="rounded-circle border mb-2" width="100" height="100" style="object-fit: cover;">
                                                         <?php else: ?>
                                                             <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 fw-bold fs-2" style="width: 100px; height: 100px;">
                                                                 <?= strtoupper(substr($u['full_name'] ?? 'U', 0, 1)) ?>
