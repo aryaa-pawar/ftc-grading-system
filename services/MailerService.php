@@ -10,6 +10,13 @@ use PHPMailer\PHPMailer\Exception;
 
 class MailerService {
 
+    private static function ensureLogDirectory(): void {
+        $logDirectory = __DIR__ . '/../storage/logs';
+        if (!is_dir($logDirectory)) {
+            mkdir($logDirectory, 0775, true);
+        }
+    }
+
     private static function createMailer(): PHPMailer {
         $mail = new PHPMailer(true);
 
@@ -67,6 +74,7 @@ class MailerService {
             return true;
         } catch (Exception $e) {
             $smtpError = $mail ? $mail->ErrorInfo : 'Mailer creation failed';
+            self::ensureLogDirectory();
             error_log("OTP Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . " | SMTP Error: " . $smtpError . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
@@ -102,6 +110,7 @@ class MailerService {
             return true;
         } catch (Exception $e) {
             $smtpError = $mail ? $mail->ErrorInfo : 'Mailer creation failed';
+            self::ensureLogDirectory();
             error_log("Approval Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . " | SMTP Error: " . $smtpError . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
@@ -137,6 +146,7 @@ class MailerService {
             return true;
         } catch (Exception $e) {
             $smtpError = $mail ? $mail->ErrorInfo : 'Mailer creation failed';
+            self::ensureLogDirectory();
             error_log("Rejection Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . " | SMTP Error: " . $smtpError . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
