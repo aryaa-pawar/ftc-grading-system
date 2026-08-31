@@ -477,13 +477,13 @@ if (!empty($_SESSION['user_id'])) {
                 <strong>Designed, Developed by Students of Vishwakarma Institute of Technology, Pune</strong>
                 <div class="mt-2">
                     <span class="text-uppercase fw-bold text-warning small me-2">Built by:</span>
-                    <a href="https://www.linkedin.com/in/arya-pawar-34237a326/" target="_blank" rel="noopener noreferrer" class="text-info text-decoration-underline me-2">arya-pawar-34237a326</a>
+                    <a href="https://www.linkedin.com/in/arya-pawar-34237a326/" target="_blank" rel="noopener noreferrer" class="text-reset text-decoration-none me-2">Arya Pawar</a>
                     <span class="text-secondary me-2">|</span>
-                    <a href="https://www.linkedin.com/in/anushka-patil-42585832a/" target="_blank" rel="noopener noreferrer" class="text-info text-decoration-underline me-2">anushka-patil-42585832a</a>
+                    <a href="https://www.linkedin.com/in/anushka-patil-42585832a/" target="_blank" rel="noopener noreferrer" class="text-reset text-decoration-none me-2">Anushka Patil</a>
                     <span class="text-secondary me-2">|</span>
-                    <a href="https://www.linkedin.com/in/samarth-bidkar-24nov2005/" target="_blank" rel="noopener noreferrer" class="text-info text-decoration-underline me-2">samarth-bidkar-24nov2005</a>
+                    <a href="https://www.linkedin.com/in/samarth-bidkar-24nov2005/" target="_blank" rel="noopener noreferrer" class="text-reset text-decoration-none me-2">Samarth Bidkar</a>
                     <span class="text-secondary me-2">|</span>
-                    <a href="https://www.linkedin.com/in/nidhish-chincholkar-881821343/" target="_blank" rel="noopener noreferrer" class="text-info text-decoration-underline">nidhish-chincholkar-881821343</a>
+                    <a href="https://www.linkedin.com/in/nidhish-chincholkar-881821343/" target="_blank" rel="noopener noreferrer" class="text-reset text-decoration-none">Nidhish Chincholkar</a>
                 </div>
             </div>
         </div>
