@@ -73,6 +73,10 @@ CREATE TABLE batches (
 
     station VARCHAR(50) NOT NULL DEFAULT 'DELHI',
 
+    status ENUM('Active','Completed','Locked') NOT NULL DEFAULT 'Active',
+
+    is_locked TINYINT(1) NOT NULL DEFAULT 0,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     updated_at TIMESTAMP
@@ -220,6 +224,10 @@ CREATE TABLE faculties (
     faculty_name VARCHAR(150) NOT NULL,
 
     email VARCHAR(100) UNIQUE,
+
+    password VARCHAR(255) NULL,
+
+    user_id INT NULL UNIQUE,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

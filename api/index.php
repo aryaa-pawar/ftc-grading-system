@@ -15,11 +15,6 @@ if (session_status() === PHP_SESSION_NONE) {
 $autoloader = __DIR__ . '/../vendor/autoload.php';
 if (file_exists($autoloader)) {
     require_once $autoloader;
-} else {
-    $altAutoloader = __DIR__ . '/../imdAuth/vendor/autoload.php';
-    if (file_exists($altAutoloader)) {
-        require_once $altAutoloader;
-    }
 }
 
 // 2. Load Dotenv environment variables

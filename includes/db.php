@@ -10,8 +10,6 @@
 
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
-} elseif (file_exists(__DIR__ . '/../imdAuth/vendor/autoload.php')) {
-    require_once __DIR__ . '/../imdAuth/vendor/autoload.php';
 }
 
 if (class_exists('Dotenv\\Dotenv')) {
