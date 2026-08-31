@@ -6,7 +6,7 @@ ini_set('display_errors', 1);
 require_once __DIR__ . "/../../includes/auth.php";
 require_permission('marks.view');
 require_once __DIR__ . "/../../config/database.php";
-require_once __DIR__ . "/../../imdAuth/vendor/autoload.php";
+require_once __DIR__ . "/../../vendor/autoload.php";
 
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
