@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libicu-dev libpng-dev libzip-dev libxml2-dev \
+    && apt-get install -y --no-install-recommends libicu-dev libpng-dev libzip-dev libxml2-dev libonig-dev \
     && docker-php-ext-configure gd \
     && docker-php-ext-install pdo_mysql mbstring intl gd zip \
     && a2enmod rewrite \
