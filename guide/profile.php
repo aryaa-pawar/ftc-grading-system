@@ -53,7 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $targetDir = __DIR__ . '/../storage/uploads/profile_photos/';
                 $targetFile = $targetDir . $randomName;
 
-                if (!move_uploaded_file($file['tmp_name'], $targetFile)) {
+                if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true)) {
+                    $errors[] = "Profile photo upload directory could not be created.";
+                } elseif (!is_writable($targetDir)) {
+                    $errors[] = "Profile photo upload directory is not writable.";
+                } elseif (!move_uploaded_file($file['tmp_name'], $targetFile)) {
                     $errors[] = "Failed to save uploaded photo.";
                 } else {
                     $photoFilename = $randomName;
@@ -242,4 +246,3 @@ $profile = $stmt->fetch();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
