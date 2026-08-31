@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             $stmtRole = $pdo->query("SELECT role_id FROM roles WHERE role_name = 'verification' LIMIT 1");
             $verificationRoleId = $stmtRole->fetchColumn();
-            if (!$verificationRoleId) {
+            if ($verificationRoleId === false) {
                 throw new RuntimeException('The verification role is missing. Run database_migration.sql first.');
             }
 
@@ -81,8 +81,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $newStatus    = $_POST['account_status'] ?? 'active';
     $newRoleId    = (int)($_POST['role_id'] ?? 1);
 
+    $stmtRole = $pdo->prepare('SELECT role_id FROM roles WHERE role_id = :role_id AND role_name IN (\'guide\', \'verification\', \'super_admin\') LIMIT 1');
+    $stmtRole->execute([':role_id' => $newRoleId]);
+    $validatedRoleId = $stmtRole->fetchColumn();
+
     if (!in_array($newStatus, ['active', 'pending_approval', 'rejected', 'suspended'], true)) {
         setFlash('danger', 'Invalid status value.');
+    } elseif ($validatedRoleId === false) {
+        setFlash('danger', 'Invalid role value.');
     } else {
         try {
             $stmt = $pdo->prepare("
@@ -92,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             ");
             $stmt->execute([
                 ':status'  => $newStatus,
-                ':role_id' => $newRoleId,
+                ':role_id' => $validatedRoleId,
                 ':uid'     => $targetUserId
             ]);
 
@@ -148,7 +154,7 @@ $stmtUsers->execute($params);
 $usersList = $stmtUsers->fetchAll();
 
 // Fetch roles list for select dropdown
-$roles = $pdo->query("SELECT * FROM roles WHERE role_name <> 'dept_admin' ORDER BY role_id ASC")->fetchAll();
+$roles = $pdo->query("SELECT * FROM roles WHERE role_name IN ('guide', 'verification', 'super_admin') ORDER BY role_id ASC")->fetchAll();
 $pageTitle = 'Manage Users';
 ?>
 <?php require_once __DIR__ . '/../includes/header.php'; ?>
@@ -326,7 +332,7 @@ $pageTitle = 'Manage Users';
                                                                 <select class="form-select form-select-sm" name="role_id">
                                                                     <?php foreach ($roles as $r): ?>
                                                                         <option value="<?= $r['role_id'] ?>" <?= $u['role_id'] == $r['role_id'] ? 'selected' : '' ?>>
-                                                                            <?= e($r['role_name']) ?>
+                                                                            <?= e($r['role_name'] === 'verification' ? 'Verification' : ($r['role_name'] === 'guide' ? 'Guide / Supervisor' : 'Super Admin')) ?>
                                                                         </option>
                                                                     <?php endforeach; ?>
                                                                 </select>
