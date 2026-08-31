@@ -95,6 +95,11 @@ class MailerService {
         }
     }
 
+    public static function sendPasswordResetOtp(string $toEmail, string $toName, string $otpCode): bool {
+        $htmlContent = '<p>Hello <strong>' . e($toName) . '</strong>,</p><p>A password reset was requested for your FTC Grading System account.</p><p>Your password reset OTP is: <strong>' . e($otpCode) . '</strong></p><p>This OTP expires in 5 minutes. If you did not request this reset, ignore this email.</p><p>Regards,<br>FTC Grading System<br>India Meteorological Department</p>';
+        return self::sendBrevoEmail($toEmail, $toName, 'FTC Grading System - Password Reset OTP', $htmlContent, 'Password Reset Mailer');
+    }
+
     /**
      * Send credentials for a newly created Verification Officer account.
      */

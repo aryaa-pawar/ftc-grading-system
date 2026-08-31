@@ -29,10 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['pending_2fa_user_id'] = (int)$user['user_id'];
                 $_SESSION['pending_2fa_email'] = $user['email'];
                 $_SESSION['pending_2fa_name'] = $user['full_name'] ?? $user['faculty_name'] ?? 'User';
-                $pdo->prepare('UPDATE otp_verifications SET is_used = 1 WHERE user_id = ? AND is_used = 0')
+                $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE user_id = ? AND purpose = 'login' AND is_used = 0")
                     ->execute([(int)$user['user_id']]);
                 $otpCode = sprintf('%06d', random_int(0, 999999));
-                $pdo->prepare('INSERT INTO otp_verifications (user_id, otp_code_hash, expires_at, otp_last_sent_at, created_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE), NOW(), NOW())')
+                $pdo->prepare("INSERT INTO otp_verifications (user_id, otp_code_hash, purpose, expires_at, otp_last_sent_at, created_at) VALUES (?, ?, 'login', DATE_ADD(NOW(), INTERVAL 5 MINUTE), NOW(), NOW())")
                     ->execute([(int)$user['user_id'], hash('sha256', $otpCode)]);
                 require_once __DIR__ . '/../imdAuth/services/MailerService.php';
                 $sent = MailerService::sendOtpEmail($user['email'], $user['full_name'] ?? 'User', $otpCode);

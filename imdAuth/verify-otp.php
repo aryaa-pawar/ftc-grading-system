@@ -27,7 +27,7 @@ $error = null;
 // Fetch active OTP record
 $stmtOtp = $pdo->prepare("
     SELECT * FROM otp_verifications 
-    WHERE user_id = :uid AND is_used = 0 
+    WHERE user_id = :uid AND purpose = 'login' AND is_used = 0 
     ORDER BY created_at DESC LIMIT 1
 ");
 $stmtOtp->execute([':uid' => $userId]);
@@ -45,7 +45,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'resend_otp') {
         $error = "Please wait {$waitSecs} seconds before requesting a new OTP.";
     } else {
         // Invalidate previous OTPs
-        $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE user_id = :uid AND is_used = 0")
+        $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE user_id = :uid AND purpose = 'login' AND is_used = 0")
             ->execute([':uid' => $userId]);
 
         // Generate new OTP
@@ -54,8 +54,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'resend_otp') {
         $newExpiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
 
         $insertStmt = $pdo->prepare("
-            INSERT INTO otp_verifications (user_id, otp_code_hash, expires_at, attempts, is_used, otp_last_sent_at, created_at)
-            VALUES (:uid, :hash, :expires, 0, 0, NOW(), NOW())
+            INSERT INTO otp_verifications (user_id, otp_code_hash, purpose, expires_at, attempts, is_used, otp_last_sent_at, created_at)
+            VALUES (:uid, :hash, 'login', :expires, 0, 0, NOW(), NOW())
         ");
         $insertStmt->execute([
             ':uid'     => $userId,
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 
         if ($now > $expiresAt) {
             // Mark as expired/used
-            $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE otp_id = :oid")
+            $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE otp_id = :oid AND purpose = 'login'")
                 ->execute([':oid' => $otpRecord['otp_id']]);
             $error = "OTP has expired. Please request a new OTP code.";
         } else {
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 
                 if ($attempts >= 3) {
                     // Invalidate OTP and force restart at Step 1
-                    $pdo->prepare("UPDATE otp_verifications SET attempts = :att, is_used = 1 WHERE otp_id = :oid")
+                    $pdo->prepare("UPDATE otp_verifications SET attempts = :att, is_used = 1 WHERE otp_id = :oid AND purpose = 'login'")
                         ->execute([':att' => $attempts, ':oid' => $otpRecord['otp_id']]);
 
                     unset($_SESSION['pending_2fa_user_id']);
@@ -116,14 +116,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
                     header('Location: ' . baseUrl('login.php'));
                     exit;
                 } else {
-                    $pdo->prepare("UPDATE otp_verifications SET attempts = :att WHERE otp_id = :oid")
+                    $pdo->prepare("UPDATE otp_verifications SET attempts = :att WHERE otp_id = :oid AND purpose = 'login'")
                         ->execute([':att' => $attempts, ':oid' => $otpRecord['otp_id']]);
                     $remaining = 3 - $attempts;
                     $error = "Invalid OTP code. You have {$remaining} attempt(s) remaining.";
                 }
             } else {
                 // OTP VERIFIED SUCCESS
-                $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE otp_id = :oid")
+                $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE otp_id = :oid AND purpose = 'login'")
                     ->execute([':oid' => $otpRecord['otp_id']]);
 
                 // Fetch user & role details

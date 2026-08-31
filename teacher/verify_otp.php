@@ -12,7 +12,7 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $code = trim($_POST['otp_code'] ?? '');
-    $stmt = $pdo->prepare('SELECT * FROM otp_verifications WHERE user_id = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1');
+    $stmt = $pdo->prepare("SELECT * FROM otp_verifications WHERE user_id = ? AND purpose = 'login' AND is_used = 0 ORDER BY created_at DESC LIMIT 1");
     $stmt->execute([$userId]);
     $otp = $stmt->fetch();
 
@@ -20,11 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'The OTP is invalid or expired.';
     } elseif (!hash_equals($otp['otp_code_hash'], hash('sha256', $code))) {
         $attempts = (int)$otp['attempts'] + 1;
-        $pdo->prepare('UPDATE otp_verifications SET attempts = ?, is_used = ? WHERE otp_id = ?')
+        $pdo->prepare("UPDATE otp_verifications SET attempts = ?, is_used = ? WHERE otp_id = ? AND purpose = 'login'")
             ->execute([$attempts, $attempts >= 3 ? 1 : 0, $otp['otp_id']]);
         $error = $attempts >= 3 ? 'Too many attempts. Please log in again.' : 'Invalid OTP.';
     } else {
-        $pdo->prepare('UPDATE otp_verifications SET is_used = 1 WHERE otp_id = ?')->execute([$otp['otp_id']]);
+        $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE otp_id = ? AND purpose = 'login'")->execute([$otp['otp_id']]);
         $stmt = $pdo->prepare('SELECT u.*, r.role_name, p.full_name, f.faculty_id, f.faculty_name FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN profiles p ON p.user_id = u.user_id LEFT JOIN faculties f ON f.user_id = u.user_id WHERE u.user_id = ?');
         $stmt->execute([$userId]);
         $user = $stmt->fetch();

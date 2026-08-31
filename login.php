@@ -104,13 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $expiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
 
                         // Invalidate existing unused OTPs
-                        $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE user_id = :uid AND is_used = 0")
+                        $pdo->prepare("UPDATE otp_verifications SET is_used = 1 WHERE user_id = :uid AND purpose = 'login' AND is_used = 0")
                             ->execute([':uid' => $user['user_id']]);
 
                         // Insert new OTP
                         $otpStmt = $pdo->prepare("
-                            INSERT INTO otp_verifications (user_id, otp_code_hash, expires_at, attempts, is_used, otp_last_sent_at, created_at)
-                            VALUES (:uid, :hash, :expires, 0, 0, NOW(), NOW())
+                            INSERT INTO otp_verifications (user_id, otp_code_hash, purpose, expires_at, attempts, is_used, otp_last_sent_at, created_at)
+                            VALUES (:uid, :hash, 'login', :expires, 0, 0, NOW(), NOW())
                         ");
                         $otpStmt->execute([
                             ':uid'     => $user['user_id'],
@@ -198,6 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <button type="submit" class="btn btn-imd w-100 py-2 fs-5">Continue to OTP</button>
                             </div>
                         </form>
+                        <div class="text-center mt-3"><a href="<?= baseUrl('forgot-password.php') ?>">Forgot Password?</a></div>
 
                         <hr class="my-4">
 
