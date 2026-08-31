@@ -43,6 +43,7 @@ class MailerService {
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_HTTPHEADER => ['api-key: ' . $apiKey, 'Content-Type: application/json', 'Accept: application/json'],
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => 20,
         ]);
         $response = curl_exec($ch);
@@ -90,6 +91,33 @@ class MailerService {
         } catch (Exception $e) {
             self::ensureLogDirectory();
             error_log("OTP Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
+            return false;
+        }
+    }
+
+    /**
+     * Send credentials for a newly created Verification Officer account.
+     */
+    public static function sendVerificationOfficerCredentials(string $toEmail, string $toName, string $temporaryPassword): bool {
+        try {
+            $htmlContent = '
+            <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-top: 4px solid #003366; border-radius: 6px; padding: 30px;">
+                    <h2 style="color: #003366; margin-top: 0;">FTC Grading System</h2>
+                    <p style="font-size: 14px;">Hello <strong>' . e($toName) . '</strong>,</p>
+                    <p style="font-size: 14px;">Your Verification Officer account has been created.</p>
+                    <p style="font-size: 14px;"><strong>Login ID / Email:</strong> ' . e($toEmail) . '</p>
+                    <p style="font-size: 14px;"><strong>Temporary Password:</strong> ' . e($temporaryPassword) . '</p>
+                    <p style="font-size: 14px;"><strong>Login URL:</strong> <a href="' . e(baseUrl('login.php')) . '">' . e(baseUrl('login.php')) . '</a></p>
+                    <p style="font-size: 14px;">Please sign in using these credentials.</p>
+                    <p style="font-size: 14px;">Regards,<br>FTC Grading System<br>India Meteorological Department</p>
+                </div>
+            </div>';
+
+            return self::sendBrevoEmail($toEmail, $toName, 'FTC Grading System - Verification Officer Account Created', $htmlContent, 'Verification Credentials Mailer');
+        } catch (Exception $e) {
+            self::ensureLogDirectory();
+            error_log("Verification Credentials Mailer Failure [To: {$toEmail}]: " . $e->getMessage() . "\n", 3, __DIR__ . '/../storage/logs/app_error.log');
             return false;
         }
     }

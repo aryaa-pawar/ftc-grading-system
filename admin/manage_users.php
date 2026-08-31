@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../services/MailerService.php';
 
 $auth = requireAuth(['admin', 'super_admin']);
 $pdo = getDbConnection();
@@ -55,7 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             $pdo->commit();
             logAudit($auth['user_id'], "VERIFICATION_USER_CREATED (Target User ID: {$newUserId})");
-            setFlash('success', "Verification user created successfully for {$email}.");
+            if (MailerService::sendVerificationOfficerCredentials($email, $name, $password)) {
+                setFlash('success', "Verification user created successfully for {$email}. Credentials were emailed.");
+            } else {
+                setFlash('warning', "Verification user created successfully, but the credentials email could not be sent.");
+            }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
