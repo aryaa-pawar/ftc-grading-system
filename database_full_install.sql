@@ -1215,21 +1215,21 @@ CREATE TRIGGER trg_check_elective_assignment
 BEFORE INSERT ON faculty_marks_entry
 FOR EACH ROW
 BEGIN
-    DECLARE v_student_group CHAR(1);
-    DECLARE v_subject_group CHAR(1);
-    DECLARE v_is_elective BOOLEAN;
+    DECLARE v_paper_code VARCHAR(10);
+    DECLARE v_group_matches INT DEFAULT 0;
 
-    SELECT is_elective INTO v_is_elective 
-    FROM subjects WHERE subject_id = NEW.subject_id;
+    SELECT p.paper_code INTO v_paper_code
+    FROM papers p WHERE p.paper_id = NEW.paper_id LIMIT 1;
 
-    IF v_is_elective = TRUE THEN
-        SELECT group_code INTO v_student_group 
-        FROM students WHERE student_id = NEW.student_id;
+    IF UPPER(TRIM(v_paper_code)) = 'P-V' THEN
+        SELECT COUNT(*) INTO v_group_matches
+        FROM students st
+        INNER JOIN elective_subject_mapping esm
+            ON esm.subject_id = NEW.subject_id
+           AND LOWER(TRIM(esm.group_code)) = LOWER(TRIM(st.group_code))
+        WHERE st.student_id = NEW.student_id;
 
-        SELECT group_code INTO v_subject_group 
-        FROM elective_subject_mapping WHERE subject_id = NEW.subject_id;
-
-        IF v_student_group IS NULL OR v_student_group <> v_subject_group THEN
+        IF v_group_matches = 0 THEN
             SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Error: Cannot enter marks for an elective subject outside the student assigned elective group.';
         END IF;
@@ -1635,20 +1635,7 @@ CREATE OR REPLACE VIEW v_tabulation AS
     (
         SELECT
             vt.*,
-            CASE
-                WHEN (
-                    p.is_elective = 1
-                    OR UPPER(p.paper_code) IN ('P5', 'P-V')
-                    OR UPPER(p.paper_name) LIKE '%ELECTIVE%'
-                )
-                     AND ept.raw_maximum > 0
-                THEN ROUND(
-                    (ept.raw_obtained / ept.raw_maximum)
-                    * (p.max_internal + p.max_midterm + p.max_final),
-                    0
-                )
-                ELSE vt.combined_total
-            END AS normalized_combined_total
+            vt.combined_total AS normalized_combined_total
         FROM
         (
             SELECT

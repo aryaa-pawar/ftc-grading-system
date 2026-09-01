@@ -252,20 +252,7 @@ CREATE OR REPLACE VIEW v_tabulation AS
     (
         SELECT
             vt.*,
-            CASE
-                WHEN (
-                    p.is_elective = 1
-                    OR UPPER(p.paper_code) IN ('P5', 'P-V')
-                    OR UPPER(p.paper_name) LIKE '%ELECTIVE%'
-                )
-                     AND ept.raw_maximum > 0
-                THEN ROUND(
-                    (ept.raw_obtained / ept.raw_maximum)
-                    * (p.max_internal + p.max_midterm + p.max_final),
-                    0
-                )
-                ELSE vt.combined_total
-            END AS normalized_combined_total
+            vt.combined_total AS normalized_combined_total
         FROM
         (
             SELECT

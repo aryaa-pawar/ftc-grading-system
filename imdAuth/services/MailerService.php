@@ -43,6 +43,7 @@ class MailerService {
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_HTTPHEADER => ['api-key: ' . $apiKey, 'Content-Type: application/json', 'Accept: application/json'],
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => 20,
         ]);
         $response = curl_exec($ch);
@@ -151,5 +152,4 @@ class MailerService {
     }
 
 }
-
 
