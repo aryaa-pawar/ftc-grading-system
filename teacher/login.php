@@ -254,6 +254,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 12px;
             color: rgba(255,255,255,0.5);
         }
+
+        /* Match the main portal login shell. */
+        body { background: #f4f6f9 !important; align-items: stretch !important; overflow: auto !important; }
+        body::before, body::after { display: none !important; }
+        .login-wrapper { max-width: none; padding: 0; }
+        .login-brand { text-align: left; margin: 0; padding: 1rem max(20px, calc((100% - 1140px) / 2)); background: linear-gradient(135deg, #003366 0%, #001f3f 100%); border-bottom: 4px solid #D4AF37; }
+        .login-brand .emblem { display: none; }
+        .login-brand h1 { color: #fff; font-size: 1.25rem; }
+        .login-brand p { color: #D4AF37; text-transform: uppercase; letter-spacing: 1px; }
+        .login-card { width: min(100% - 30px, 540px); margin: 3rem auto; padding: 1.5rem; border-radius: 8px; border-top: 4px solid #003366; box-shadow: 0 4px 15px rgba(0,0,0,.08); backdrop-filter: none; }
+        .card-title { font-size: 1.5rem; color: #003366; }
+        .card-subtitle { margin-bottom: 1.5rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-control { padding: .375rem .75rem; border: 1px solid #ced4da; border-radius: .375rem; background: #fff; }
+        .form-control:focus { border-color: #86b7fe; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
+        .input-wrap .icon { display: none; }
+        .btn-login { margin-top: 1rem; padding: .5rem 1rem; background: #003366; border-radius: .375rem; box-shadow: none; }
+        .login-note { margin: 0; padding: 1rem; color: #777; }
     </style>
 </head>
 <body>
