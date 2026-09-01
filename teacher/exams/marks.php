@@ -165,11 +165,8 @@ if ($currentAssignment) {
     ]);
     $currentMarks = $marksStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // If subject is elective, filter students by group_code
-    $isElectiveStmt = $pdo->prepare("SELECT is_elective FROM subjects WHERE subject_id = ?");
-    $isElectiveStmt->execute([$sId]);
-    $subInfo = $isElectiveStmt->fetch(PDO::FETCH_ASSOC);
-    $isElective = (int)($subInfo['is_elective'] ?? 0) === 1;
+    // Apply elective eligibility only in the P-V paper context.
+    $isElective = strtoupper(trim($currentPaper['paper_code'] ?? '')) === 'P-V';
 
     if ($isElective) {
         $egStmt = $pdo->prepare("SELECT group_code FROM elective_subject_mapping WHERE subject_id = ?");

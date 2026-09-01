@@ -130,11 +130,8 @@ try {
             : $currentPaper['max_final']);
     }
 
-    /* Check if subject is elective and load allowed group codes */
-    $stmt = $pdo->prepare("SELECT is_elective FROM subjects WHERE subject_id = ?");
-    $stmt->execute([$subjectId]);
-    $subInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-    $isElective = (int)($subInfo['is_elective'] ?? 0) === 1;
+    /* Apply elective eligibility only in the P-V paper context. */
+    $isElective = strtoupper(trim($currentPaper['paper_code'] ?? '')) === 'P-V';
 
     $allowedGroups = [];
     if ($isElective) {
@@ -202,6 +199,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === "") {
         ");
         $stmt->execute([$batchId]);
         $studentIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if ($isElective && !empty($allowedGroups)) {
+            $studentIds = array_values(array_filter($studentIds, function ($studentId) use ($pdo, $allowedGroups) {
+                $check = $pdo->prepare('SELECT group_code FROM students WHERE student_id = ?');
+                $check->execute([(int)$studentId]);
+                return in_array(strtolower(trim((string)$check->fetchColumn())), $allowedGroups, true);
+            }));
+        }
 
         $save = $pdo->prepare("
             INSERT INTO faculty_marks_entry
