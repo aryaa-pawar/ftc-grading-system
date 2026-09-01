@@ -229,7 +229,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
                 fme.assessment_type_id,
                 CASE
                     WHEN COUNT(CASE WHEN fme.is_absent = 0 AND fme.marks_obtained IS NOT NULL THEN 1 END) > 0
-                    THEN CEIL(AVG(CASE WHEN fme.is_absent = 0 THEN CEIL(fme.marks_obtained) ELSE NULL END))
+                    THEN ROUND(AVG(CASE WHEN fme.is_absent = 0 THEN fme.marks_obtained ELSE NULL END), 0)
                     ELSE 0
                 END AS score
             FROM faculty_marks_entry fme
@@ -328,7 +328,7 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
             foreach ($paperGroup['subjects'] as $subject) {
                 $paperId = (int)$paperGroup['paper_id'];
                 $subjectId = (int)$subject['subject_id'];
-                $isElective = (int)($subject['is_elective'] ?? 0) === 1;
+                $isElective = strtoupper(trim($paperGroup['paper_code'] ?? '')) === 'P-V';
                 $studentGroup = strtolower(trim($student['group_code'] ?? ''));
                 $allowedGroups = $electiveSubjectGroups[$subjectId] ?? [];
                 $isApplicable = !$isElective || empty($allowedGroups) || in_array($studentGroup, $allowedGroups, true);
