@@ -115,11 +115,11 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
 
 .admin-sidebar-title {
 
-    padding: 22px 25px;
+    padding: 25px 30px;
 
     color: #1f4e79;
 
-    font-size: 23px;
+    font-size: 28px;
 
     font-weight: bold;
 
@@ -133,7 +133,7 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
 
 .admin-sidebar-section {
 
-    padding: 16px 25px 7px;
+    padding: 18px 30px 8px;
 
     color: #888888;
 
@@ -157,7 +157,7 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
 
     width: 100%;
 
-    padding: 11px 25px;
+    padding: 12px 30px;
 
     box-sizing: border-box;
 
@@ -203,7 +203,7 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
 
     border-left: 4px solid #1f4e79;
 
-    padding-left: 21px;
+    padding-left: 26px;
 }
 
 .admin-sidebar a.admin-logout {

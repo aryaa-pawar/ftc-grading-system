@@ -707,21 +707,7 @@ body {
      TOP BAR
 ====================================================== -->
 
-<header class="topbar">
-
-    <div class="topbar-title">
-
-        FTC Grading & Tabulation Management System
-
-    </div>
-
-    <div class="topbar-right">
-
-        Admin
-
-    </div>
-
-</header>
+<?php require_once __DIR__ . '/../../includes/navbar.php'; ?>
 
 
 

@@ -416,21 +416,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <body>
 
 
-<header class="header">
-
-    <div class="header-title">
-
-        FTC Grading & Tabulation Management System
-
-    </div>
-
-    <div class="header-right">
-
-        Admin
-
-    </div>
-
-</header>
+<?php require_once "../../includes/navbar.php"; ?>
 
 
 <div class="layout">

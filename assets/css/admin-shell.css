@@ -1,0 +1,20 @@
+/* Shared admin portal shell. */
+:root { --admin-blue:#1f4e79; --admin-bg:#f4f6f8; }
+html, body { min-width:0; }
+.admin-topbar, header.topbar { height:60px; background:var(--admin-blue); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 28px; box-sizing:border-box; }
+.admin-topbar > div:first-child, .topbar-title { min-width:0; font-size:23px; font-weight:700; line-height:1.2; overflow-wrap:anywhere; }
+.admin-topbar a, header.topbar a { color:#fff; }
+.admin-topbar .admin-logout { border:1px solid rgba(255,255,255,.75); border-radius:4px; padding:6px 12px; }
+.layout { display:flex; width:100%; min-height:calc(100vh - 60px); }
+.content { flex:1; min-width:0; padding:40px 36px; background:var(--admin-bg); overflow-x:auto; }
+.page-title { margin:0; color:var(--admin-blue); font-size:36px; line-height:1.2; }
+.page-subtitle { margin:8px 0 28px; color:#555; font-size:18px; }
+.data-table-container { max-width:100%; overflow-x:auto; }
+.data-table { width:100%; border-collapse:collapse; }
+.data-table th { background:var(--admin-blue); color:#fff; padding:12px; text-align:left; vertical-align:middle; }
+.data-table td { padding:12px; border-bottom:1px solid #eee; vertical-align:middle; }
+.btn { min-height:40px; padding:10px 18px; border-radius:5px; font-size:14px; }
+.form-group { margin-bottom:18px; }
+.form-group input, .form-group select, .form-group textarea { min-height:40px; padding:10px; }
+@media (max-width:800px) { .admin-topbar, header.topbar { padding:0 20px; } .admin-topbar > div:first-child, .topbar-title { font-size:18px; } .content { padding:25px 20px; } .page-title { font-size:30px; } }
+@media (max-width:600px) { .admin-topbar, header.topbar { min-height:60px; height:auto; padding:10px 16px; gap:12px; } .admin-topbar > div:first-child, .topbar-title { font-size:16px; } .content { padding:20px 16px; } .page-title { font-size:26px; } }
