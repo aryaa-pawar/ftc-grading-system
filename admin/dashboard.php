@@ -172,8 +172,6 @@ try {
         Admin Dashboard
     </title>
 
-    <link rel="stylesheet" href="../assets/css/admin-shell.css">
-
 
     <style>
 

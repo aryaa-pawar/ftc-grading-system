@@ -61,9 +61,7 @@ if (!$isVerificationPanel) {
 }
 ?>
 
-<link rel="stylesheet" href="<?php echo htmlspecialchars($appBase . '/assets/css/admin-shell.css', ENT_QUOTES, 'UTF-8'); ?>">
-
-<nav class="admin-topbar" style="
+<nav style="
     width: 100%;
     max-width: 100%;
     height: 60px;
@@ -141,7 +139,7 @@ if (!$isVerificationPanel) {
         flex-shrink: 0;
     ">
         <?php echo $isVerificationPanel ? 'Verification Officer' : 'Admin'; ?>
-        <?php if (true): ?>
+        <?php if ($isVerificationPanel): ?>
             <a
                 href="<?php echo htmlspecialchars($appBase . '/logout.php', ENT_QUOTES, 'UTF-8'); ?>"
                 style="
