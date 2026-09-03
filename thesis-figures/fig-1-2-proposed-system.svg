@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-<defs><marker id="a" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#1f2937"/></marker></defs>
-<rect width="1600" height="900" fill="white"/><g font-family="Arial,Helvetica,sans-serif" fill="#111827" text-anchor="middle">
-<text x="800" y="72" font-size="34" font-weight="700" fill="#1f4e79">Proposed Centralized Result-Management System</text>
-<rect x="570" y="155" width="460" height="120" rx="4" fill="#eaf2f8" stroke="#1f4e79" stroke-width="3"/><text x="800" y="205" font-size="28" font-weight="700"><tspan x="800">Common Assessment</tspan><tspan x="800" dy="38">Database</tspan></text>
-<g stroke="#1f4e79" stroke-width="3" fill="#f8fafc"><rect x="80" y="380" width="260" height="130" rx="4"/><rect x="410" y="380" width="260" height="130" rx="4"/><rect x="740" y="380" width="260" height="130" rx="4"/><rect x="1070" y="380" width="260" height="130" rx="4"/></g>
-<g font-size="24"><text x="210" y="435"><tspan x="210">Authorized users</tspan><tspan x="210" dy="34">enter marks</tspan></text><text x="540" y="435"><tspan x="540">Marks validation</tspan><tspan x="540" dy="34">and verification</tspan></text><text x="870" y="435"><tspan x="870">Tabulation and</tspan><tspan x="870" dy="34">processing</tspan></text><text x="1200" y="435"><tspan x="1200">Result generation</tspan><tspan x="1200" dy="34">and reporting</tspan></text></g>
-<g stroke="#1f2937" stroke-width="3" marker-end="url(#a)"><path d="M210 380 V275 H570"/><path d="M670 445 H740"/><path d="M1000 445 H1070"/><path d="M870 380 V275"/></g><path d="M1030 215 H1280 V380" fill="none" stroke="#1f2937" stroke-width="3" marker-end="url(#a)"/>
-<text x="800" y="670" font-size="27" fill="#374151">A single controlled workflow supports reliable assessment processing.</text></g></svg>
