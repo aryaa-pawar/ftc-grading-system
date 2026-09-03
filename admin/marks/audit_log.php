@@ -17,11 +17,11 @@ try {
             mal.audit_id,
             mal.student_id,
             mal.subject_id,
-            fme.assessment_type_id,
+            mal.assessment_type_id,
             mal.old_marks,
             mal.new_marks,
-            mal.admin_name AS modified_by,
-            mal.changed_at AS modified_at,
+            mal.modified_by,
+            mal.modified_at,
 
             s.roll_no,
             s.student_name,
@@ -31,21 +31,18 @@ try {
 
             at.assessment_type_name
 
-        FROM admin_marks_audit mal
+        FROM marks_audit_log mal
 
-        LEFT JOIN faculty_marks_entry fme
-            ON fme.entry_id = mal.entry_id
-
-        LEFT JOIN students s
+        INNER JOIN students s
             ON mal.student_id = s.student_id
 
-        LEFT JOIN subjects sub
+        INNER JOIN subjects sub
             ON mal.subject_id = sub.subject_id
 
-        LEFT JOIN assessment_types at
-            ON fme.assessment_type_id = at.assessment_type_id
+        INNER JOIN assessment_types at
+            ON mal.assessment_type_id = at.assessment_type_id
 
-        ORDER BY mal.changed_at DESC
+        ORDER BY mal.modified_at DESC
     ");
 
     $auditLogs = $stmt->fetchAll();
