@@ -1401,7 +1401,7 @@ DELIMITER ;
 CREATE OR REPLACE VIEW v_subject_assessment_scores AS
 SELECT 
     fme.student_id,
-    fme.resolved_paper_id AS paper_id,
+    COALESCE(fme.paper_id, 0) AS paper_id,
     fme.subject_id,
     fme.assessment_type_id,
 
@@ -1420,18 +1420,7 @@ SELECT
         END
     ) AS subject_max_marks
 
-FROM (
-    SELECT
-        f.*,
-        COALESCE(f.paper_id, (
-            SELECT MIN(psm0.paper_id)
-            FROM paper_subject_mapping psm0
-            WHERE psm0.batch_id = std0.batch_id
-              AND psm0.subject_id = f.subject_id
-        )) AS resolved_paper_id
-    FROM faculty_marks_entry f
-    JOIN students std0 ON std0.student_id = f.student_id
-) fme
+FROM faculty_marks_entry fme
 
 JOIN subject_faculty_mapping sfm 
     ON fme.subject_id = sfm.subject_id 
@@ -1442,13 +1431,13 @@ JOIN students std
    AND std.batch_id = sfm.batch_id
 
 LEFT JOIN paper_subject_mapping psm
-    ON psm.paper_id = fme.resolved_paper_id
+    ON psm.paper_id = COALESCE(fme.paper_id, 0)
    AND psm.subject_id = fme.subject_id
    AND psm.batch_id = std.batch_id
 
 GROUP BY 
     fme.student_id,
-    fme.resolved_paper_id,
+    COALESCE(fme.paper_id, 0),
     fme.subject_id,
     fme.assessment_type_id;
 
