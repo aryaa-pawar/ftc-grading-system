@@ -168,10 +168,7 @@ if (!$studentId) {
                     fme.student_id,
                     fme.subject_id,
                     MIN(fme.faculty_id) AS faculty_id,
-                    COALESCE(fme.paper_id, (SELECT MIN(psm0.paper_id)
-                        FROM paper_subject_mapping psm0
-                        WHERE psm0.batch_id = st.batch_id
-                          AND psm0.subject_id = fme.subject_id)) AS paper_id,
+                    fme.resolved_paper_id AS paper_id,
                     fme.assessment_type_id,
                     CASE WHEN MAX(fme.is_absent) = 1 AND COUNT(CASE WHEN fme.marks_obtained IS NOT NULL THEN 1 END) = 0
                          THEN NULL ELSE ROUND(AVG(CASE WHEN fme.is_absent = 0 THEN fme.marks_obtained END), 2) END AS marks_obtained,
@@ -194,7 +191,7 @@ if (!$studentId) {
                         ELSE sfm.max_marks
                     END AS max_marks
 
-                FROM faculty_marks_entry fme
+                FROM (SELECT f.*, COALESCE(f.paper_id, (SELECT MIN(psm0.paper_id) FROM paper_subject_mapping psm0 WHERE psm0.batch_id = s.batch_id AND psm0.subject_id = f.subject_id)) AS resolved_paper_id FROM faculty_marks_entry f INNER JOIN students s ON s.student_id = f.student_id) fme
                 INNER JOIN students st ON st.student_id = fme.student_id
 
                 INNER JOIN subjects sub
@@ -207,10 +204,10 @@ if (!$studentId) {
                     ON at.assessment_type_id = fme.assessment_type_id
 
                 LEFT JOIN papers p
-                    ON p.paper_id = fme.paper_id
+                    ON p.paper_id = fme.resolved_paper_id
 
                 LEFT JOIN paper_subject_mapping psm
-                    ON psm.paper_id = fme.paper_id
+                    ON psm.paper_id = fme.resolved_paper_id
                    AND psm.subject_id = fme.subject_id
                    AND psm.batch_id = ?
 
@@ -221,10 +218,7 @@ if (!$studentId) {
 
                 WHERE fme.student_id = ?
                 GROUP BY fme.student_id, fme.subject_id,
-                         COALESCE(fme.paper_id, (SELECT MIN(psm1.paper_id)
-                           FROM paper_subject_mapping psm1
-                          WHERE psm1.batch_id = st.batch_id
-                            AND psm1.subject_id = fme.subject_id)),
+                         fme.resolved_paper_id,
                          fme.assessment_type_id,
                          sub.subject_code, sub.subject_name,
                          p.paper_code, p.paper_name, p.paper_type,
