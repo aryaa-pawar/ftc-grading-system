@@ -225,15 +225,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
             SELECT
                 fme.student_id,
                 fme.subject_id,
-                /* Legacy rows written before paper_id was supplied are
-                   resolved to the student's batch mapping. */
-                COALESCE(
-                    fme.paper_id,
-                    (SELECT MIN(psm.paper_id)
-                       FROM paper_subject_mapping psm
-                      WHERE psm.batch_id = st.batch_id
-                        AND psm.subject_id = fme.subject_id)
-                ) AS paper_id,
+                COALESCE(fme.paper_id, 0) AS paper_id,
                 fme.assessment_type_id,
                 CASE
                     WHEN COUNT(CASE WHEN fme.is_absent = 0 AND fme.marks_obtained IS NOT NULL THEN 1 END) > 0
@@ -246,12 +238,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
             WHERE st.batch_id = :batch_id
               AND (st.is_deleted = 0 OR st.is_deleted IS NULL)
               AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1)
-            GROUP BY fme.student_id, fme.subject_id,
-                     COALESCE(fme.paper_id, (SELECT MIN(psm2.paper_id)
-                       FROM paper_subject_mapping psm2
-                      WHERE psm2.batch_id = st.batch_id
-                        AND psm2.subject_id = fme.subject_id)),
-                     fme.assessment_type_id
+            GROUP BY fme.student_id, fme.subject_id, COALESCE(fme.paper_id, 0), fme.assessment_type_id
         ");
         $stmt->execute([":batch_id" => $selectedBatchId]);
         $scoreRows = $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -164,24 +164,20 @@ if (!$studentId) {
 
             $marksStmt = $pdo->prepare("
                 SELECT
-                    MIN(fme.entry_id) AS entry_id,
+                    fme.entry_id,
                     fme.student_id,
                     fme.subject_id,
-                    MIN(fme.faculty_id) AS faculty_id,
-                    COALESCE(fme.paper_id, (SELECT MIN(psm0.paper_id)
-                        FROM paper_subject_mapping psm0
-                        WHERE psm0.batch_id = st.batch_id
-                          AND psm0.subject_id = fme.subject_id)) AS paper_id,
+                    fme.faculty_id,
+                    fme.paper_id,
                     fme.assessment_type_id,
-                    CASE WHEN MAX(fme.is_absent) = 1 AND COUNT(CASE WHEN fme.marks_obtained IS NOT NULL THEN 1 END) = 0
-                         THEN NULL ELSE ROUND(AVG(CASE WHEN fme.is_absent = 0 THEN fme.marks_obtained END), 2) END AS marks_obtained,
-                    MAX(fme.is_absent) AS is_absent,
-                    MAX(fme.graded_at) AS graded_at,
+                    fme.marks_obtained,
+                    fme.is_absent,
+                    fme.graded_at,
 
                     sub.subject_code,
                     sub.subject_name,
-                    MIN(f.faculty_name) AS faculty_name,
-                    MIN(at.assessment_type_name) AS assessment_type_name,
+                    f.faculty_name,
+                    at.assessment_type_name,
 
                     p.paper_code,
                     p.paper_name,
@@ -195,7 +191,6 @@ if (!$studentId) {
                     END AS max_marks
 
                 FROM faculty_marks_entry fme
-                INNER JOIN students st ON st.student_id = fme.student_id
 
                 INNER JOIN subjects sub
                     ON sub.subject_id = fme.subject_id
@@ -219,18 +214,8 @@ if (!$studentId) {
                    AND sfm.subject_id = fme.subject_id
                    AND sfm.faculty_id = fme.faculty_id
 
-                WHERE fme.student_id = ?
-                GROUP BY fme.student_id, fme.subject_id,
-                         COALESCE(fme.paper_id, (SELECT MIN(psm1.paper_id)
-                           FROM paper_subject_mapping psm1
-                          WHERE psm1.batch_id = st.batch_id
-                            AND psm1.subject_id = fme.subject_id)),
-                         fme.assessment_type_id,
-                         sub.subject_code, sub.subject_name,
-                         p.paper_code, p.paper_name, p.paper_type,
-                         p.max_internal, p.max_midterm, p.max_final,
-                         psm.subject_max_internal, psm.subject_max_midterm,
-                         psm.subject_max_final, sfm.max_marks
+                WHERE
+                    fme.student_id = ?
 
                 ORDER BY
                     sub.subject_name ASC,
