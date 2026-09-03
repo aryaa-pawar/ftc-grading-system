@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1800" viewBox="0 0 1400 1800">
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#1f2937"/></marker></defs>
+<rect width="1400" height="1800" fill="white"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#111827" stroke="#1f2937" stroke-width="3">
+<text x="700" y="70" text-anchor="middle" font-size="34" font-weight="700" fill="#1f4e79" stroke="none">Result Processing Pipeline</text>
+<g fill="#f8fafc" stroke="#1f4e79"><rect x="450" y="150" width="500" height="110" rx="12"/><rect x="450" y="410" width="500" height="110" rx="12"/><rect x="450" y="670" width="500" height="110" rx="12"/><rect x="450" y="930" width="500" height="110" rx="12"/><rect x="450" y="1190" width="500" height="110" rx="12"/><rect x="350" y="1470" width="700" height="140" rx="12" fill="#eaf2f8"/></g>
+<g stroke="#1f2937" fill="none" marker-end="url(#arrow)"><path d="M700 260 V410"/><path d="M700 520 V670"/><path d="M700 780 V930"/><path d="M700 1040 V1190"/><path d="M700 1300 V1470"/></g>
+<g stroke="none" text-anchor="middle"><text x="700" y="215" font-size="29">Raw Marks</text><text x="700" y="475" font-size="29">Subject Assessment Score</text><text x="700" y="735" font-size="29">Paper Assessment Score</text><text x="700" y="995" font-size="29">Tabulation</text><text x="700" y="1255" font-size="29">Result Register</text><text x="700" y="1525" font-size="27"><tspan x="700">Grand Total, Percentage, Result</tspan><tspan x="700" dy="40">and Performance Remarks</tspan></text></g>
+</g></svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="1600" fill="#ffffff"/>
+  <g font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <text x="600" y="82" font-size="34" font-weight="700" fill="#1f4e79">Evolution of Result Management Systems</text>
+
+    <g fill="#f8fafc" stroke="#1f4e79" stroke-width="3">
+      <rect x="250" y="170" width="700" height="150" rx="5"/>
+      <rect x="250" y="455" width="700" height="150" rx="5"/>
+      <rect x="250" y="740" width="700" height="150" rx="5"/>
+      <rect x="250" y="1025" width="700" height="150" rx="5"/>
+      <rect x="250" y="1310" width="700" height="150" rx="5" fill="#eaf2f8"/>
+    </g>
+
+    <g fill="#111827" font-size="30">
+      <text x="600" y="258">Manual Registers</text>
+      <text x="600" y="543">Spreadsheet-Based Processing</text>
+      <text x="600" y="828">Desktop Database Systems</text>
+      <text x="600" y="1113">Web-Based Result Management</text>
+      <text x="600" y="1378">
+        <tspan x="600">Centralized Cloud-Based</tspan>
+        <tspan x="600" dy="42">Assessment System</tspan>
+      </text>
+    </g>
+
+    <g stroke="#1f2937" stroke-width="3" fill="none" marker-end="url(#arrow)">
+      <path d="M600 320 V455"/>
+      <path d="M600 605 V740"/>
+      <path d="M600 890 V1025"/>
+      <path d="M600 1175 V1310"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="2050" viewBox="0 0 1500 2050">
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#1f2937"/></marker></defs>
+<rect width="1500" height="1900" fill="white"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#111827" stroke="#1f2937" stroke-width="3">
+<text x="750" y="68" text-anchor="middle" font-size="34" font-weight="700" fill="#1f4e79" stroke="none">Authentication and OTP Design</text>
+<circle cx="750" cy="125" r="18" fill="#111827"/>
+<g fill="#f8fafc" stroke="#1f4e79"><rect x="540" y="185" width="420" height="75" rx="12"/><rect x="540" y="325" width="420" height="75" rx="12"/></g>
+<g stroke="#1f2937" fill="none" marker-end="url(#arrow)"><path d="M750 143 V185"/><path d="M750 260 V325"/><path d="M750 400 V455"/></g>
+<g stroke="none" text-anchor="middle" font-size="26"><text x="750" y="233">Enter Email and Password</text><text x="750" y="373">Validate Credentials</text></g>
+<polygon points="750,455 880,585 750,715 620,585" fill="white" stroke="#1f4e79"/><text x="750" y="594" text-anchor="middle" font-size="26" stroke="none">Credentials Valid?</text>
+<g fill="none" stroke="#1f2937" marker-end="url(#arrow)"><path d="M620 585 H300 V700"/><path d="M880 585 V760"/></g><g stroke="none" font-size="22" fill="#374151"><text x="405" y="565">No</text><text x="900" y="680">Yes</text></g>
+<rect x="120" y="700" width="360" height="80" rx="12" fill="#fdf4f4" stroke="#a12622"/><text x="300" y="751" text-anchor="middle" font-size="25" stroke="none" fill="#7f1d1d">Reject Login</text>
+<g fill="#f8fafc" stroke="#1f4e79"><rect x="540" y="760" width="420" height="75" rx="12"/><rect x="540" y="900" width="420" height="75" rx="12"/><rect x="540" y="1040" width="420" height="75" rx="12"/><rect x="540" y="1180" width="420" height="75" rx="12"/></g>
+<g stroke="#1f2937" fill="none" marker-end="url(#arrow)"><path d="M750 715 V760"/><path d="M750 835 V900"/><path d="M750 975 V1040"/><path d="M750 1115 V1180"/><path d="M750 1255 V1310"/></g>
+<g stroke="none" text-anchor="middle" font-size="26"><text x="750" y="808">Generate OTP</text><text x="750" y="948">Hash and Store OTP</text><text x="750" y="1088">Set Expiry Period</text><text x="750" y="1228">Send OTP through Email</text></g>
+<rect x="540" y="1310" width="420" height="75" rx="12" fill="#f8fafc" stroke="#1f4e79"/><text x="750" y="1358" text-anchor="middle" font-size="26" stroke="none">User Enters OTP</text>
+<polygon points="750,1435 880,1565 750,1695 620,1565" fill="white" stroke="#1f4e79"/><text x="750" y="1574" text-anchor="middle" font-size="26" stroke="none">OTP Valid?</text>
+<g stroke="#1f2937" fill="none" marker-end="url(#arrow)"><path d="M750 1385 V1435"/><path d="M620 1565 H300 V1655"/><path d="M880 1565 V1720"/></g><g stroke="none" font-size="22" fill="#374151"><text x="405" y="1545">No</text><text x="900" y="1660">Yes</text></g>
+<rect x="120" y="1655" width="360" height="80" rx="12" fill="#fdf4f4" stroke="#a12622"/><text x="300" y="1706" text-anchor="middle" font-size="25" stroke="none" fill="#7f1d1d">Reject / Retry</text>
+<rect x="540" y="1720" width="420" height="75" rx="12" fill="#eaf2f8" stroke="#1f4e79"/><text x="750" y="1768" text-anchor="middle" font-size="26" stroke="none">Create Authorized Session</text>
+<path d="M750 1795 V1860" fill="none" marker-end="url(#arrow)"/><rect x="540" y="1860" width="420" height="75" rx="12" fill="#eaf2f8" stroke="#1f4e79"/><text x="750" y="1908" text-anchor="middle" font-size="26" stroke="none">Role-Based Dashboard</text>
+</g></svg>

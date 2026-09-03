@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100">
+<defs>
+  <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+    <path d="M0,0 L14,7 L0,14 z" fill="#1f2937"/>
+  </marker>
+</defs>
+<rect width="1800" height="1100" fill="#ffffff"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#111827" stroke="#1f2937" stroke-width="3">
+  <rect x="570" y="90" width="660" height="150" rx="6" fill="#eaf2f8" stroke="#1f4e79"/>
+  <text x="900" y="150" text-anchor="middle" font-size="30" font-weight="700" stroke="none">Common Assessment</text>
+  <text x="900" y="195" text-anchor="middle" font-size="30" font-weight="700" stroke="none">Database</text>
+
+  <g fill="#f8fafc" stroke="#1f4e79">
+    <rect x="90" y="550" width="330" height="150" rx="6"/>
+    <rect x="500" y="550" width="330" height="150" rx="6"/>
+    <rect x="910" y="550" width="330" height="150" rx="6"/>
+    <rect x="1320" y="550" width="330" height="150" rx="6"/>
+  </g>
+  <g stroke="none" text-anchor="middle" font-size="25">
+    <text x="255" y="615"><tspan x="255">Authorized users</tspan><tspan x="255" dy="36">enter marks</tspan></text>
+    <text x="665" y="615"><tspan x="665">Marks validation</tspan><tspan x="665" dy="36">and verification</tspan></text>
+    <text x="1075" y="615"><tspan x="1075">Tabulation and</tspan><tspan x="1075" dy="36">processing</tspan></text>
+    <text x="1485" y="615"><tspan x="1485">Result generation</tspan><tspan x="1485" dy="36">and reporting</tspan></text>
+  </g>
+
+  <!-- Main process flow: all arrowheads terminate before the next box -->
+  <g fill="none" stroke="#1f2937" stroke-width="3" marker-end="url(#arrow)">
+    <path d="M420 625 H500"/>
+    <path d="M830 625 H910"/>
+    <path d="M1240 625 H1320"/>
+    <path d="M255 550 V360 H760 V240"/>
+    <path d="M1075 550 V360 H1040 V240"/>
+    <path d="M1485 550 V360 H1140 V240"/>
+  </g>
+  <g font-size="19" fill="#374151" stroke="none"><text x="900" y="320" text-anchor="middle">validated and processed assessment data</text></g>
+</g>
+</svg>

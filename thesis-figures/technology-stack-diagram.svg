@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1500" viewBox="0 0 1800 1500">
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#1f2937"/></marker></defs>
+<rect width="1800" height="1500" fill="white"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#111827" stroke="#1f2937" stroke-width="3">
+<text x="900" y="65" text-anchor="middle" font-size="34" font-weight="700" fill="#1f4e79" stroke="none">Technology Stack</text>
+<g fill="#f8fafc" stroke="#1f4e79"><rect x="430" y="130" width="760" height="170" rx="6"/><rect x="430" y="390" width="760" height="150" rx="6"/><rect x="430" y="630" width="760" height="130" rx="6"/><rect x="430" y="850" width="760" height="150" rx="6"/><rect x="430" y="1090" width="760" height="150" rx="6"/></g>
+<g stroke="none" text-anchor="middle"><text x="810" y="180" font-size="24" font-weight="700" fill="#1f4e79">USER INTERFACE</text><text x="810" y="245" font-size="30">HTML  |  CSS  |  Bootstrap  |  JavaScript</text><text x="810" y="435" font-size="24" font-weight="700" fill="#1f4e79">BACK-END</text><text x="810" y="495" font-size="30">PHP  |  Apache</text><text x="810" y="675" font-size="24" font-weight="700" fill="#1f4e79">DATABASE</text><text x="810" y="730" font-size="30">MySQL</text><text x="810" y="895" font-size="24" font-weight="700" fill="#1f4e79">DEVELOPMENT &amp; VERSION CONTROL</text><text x="810" y="955" font-size="29">XAMPP  |  VS Code  |  Git  |  GitHub</text><text x="810" y="1135" font-size="24" font-weight="700" fill="#1f4e79">PRODUCTION</text><text x="810" y="1195" font-size="29">Docker  |  Railway  |  Railway MySQL</text></g>
+<g stroke="#1f2937" fill="none" marker-end="url(#arrow)"><path d="M810 300 V390"/><path d="M810 540 V630"/><path d="M810 760 V850"/><path d="M810 1000 V1090"/></g>
+<!-- external service -->
+<rect x="1270" y="390" width="440" height="150" rx="6" fill="#fffdf5" stroke="#8a6d1d"/>
+<g stroke="none" text-anchor="middle"><text x="1490" y="435" font-size="24" font-weight="700" fill="#705a13">EXTERNAL SERVICE</text><text x="1490" y="495" font-size="27">Brevo HTTPS API</text></g>
+<rect x="1270" y="650" width="440" height="110" rx="6" fill="#fffdf5" stroke="#8a6d1d"/><text x="1490" y="715" text-anchor="middle" font-size="27" stroke="none">OTP Email</text>
+<g stroke="#1f2937" fill="none" marker-end="url(#arrow)"><path d="M1190 465 H1270"/><path d="M1490 540 V650"/></g>
+<text x="1225" y="445" text-anchor="middle" font-size="20" stroke="none">PHP Application</text>
+</g></svg>

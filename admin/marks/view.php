@@ -192,6 +192,10 @@ if (!$studentId) {
 
                 FROM faculty_marks_entry fme
 
+                INNER JOIN students st
+                    ON st.student_id = fme.student_id
+                   AND st.batch_id = ?
+
                 INNER JOIN subjects sub
                     ON sub.subject_id = fme.subject_id
 
@@ -201,10 +205,10 @@ if (!$studentId) {
                 INNER JOIN assessment_types at
                     ON at.assessment_type_id = fme.assessment_type_id
 
-                LEFT JOIN papers p
+                INNER JOIN papers p
                     ON p.paper_id = fme.paper_id
 
-                LEFT JOIN paper_subject_mapping psm
+                INNER JOIN paper_subject_mapping psm
                     ON psm.paper_id = fme.paper_id
                    AND psm.subject_id = fme.subject_id
                    AND psm.batch_id = ?
@@ -225,6 +229,7 @@ if (!$studentId) {
             ");
 
             $marksStmt->execute([
+                $student["batch_id"],
                 $student["batch_id"],
                 $student["batch_id"],
                 $studentId

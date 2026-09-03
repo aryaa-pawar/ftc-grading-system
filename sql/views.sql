@@ -18,7 +18,7 @@ USE ftc_grading;
 CREATE OR REPLACE VIEW v_subject_assessment_scores AS
 SELECT 
     fme.student_id,
-    COALESCE(fme.paper_id, 0) AS paper_id,
+    fme.paper_id,
     fme.subject_id,
     fme.assessment_type_id,
 
@@ -47,14 +47,14 @@ JOIN students std
     ON fme.student_id = std.student_id 
    AND std.batch_id = sfm.batch_id
 
-LEFT JOIN paper_subject_mapping psm
-    ON psm.paper_id = COALESCE(fme.paper_id, 0)
+JOIN paper_subject_mapping psm
+    ON psm.paper_id = fme.paper_id
    AND psm.subject_id = fme.subject_id
    AND psm.batch_id = std.batch_id
 
 GROUP BY 
     fme.student_id,
-    COALESCE(fme.paper_id, 0),
+    fme.paper_id,
     fme.subject_id,
     fme.assessment_type_id;
 

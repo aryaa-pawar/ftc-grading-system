@@ -225,7 +225,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
             SELECT
                 fme.student_id,
                 fme.subject_id,
-                COALESCE(fme.paper_id, 0) AS paper_id,
+                fme.paper_id AS paper_id,
                 fme.assessment_type_id,
                 CASE
                     WHEN COUNT(CASE WHEN fme.is_absent = 0 AND fme.marks_obtained IS NOT NULL THEN 1 END) > 0
@@ -235,10 +235,14 @@ if ($selectedBatchId > 0 && !empty($students)) {
             FROM faculty_marks_entry fme
             INNER JOIN students st
                 ON st.student_id = fme.student_id
+            INNER JOIN paper_subject_mapping psm
+                ON psm.batch_id = st.batch_id
+               AND psm.paper_id = fme.paper_id
+               AND psm.subject_id = fme.subject_id
             WHERE st.batch_id = :batch_id
               AND (st.is_deleted = 0 OR st.is_deleted IS NULL)
               AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1)
-            GROUP BY fme.student_id, fme.subject_id, COALESCE(fme.paper_id, 0), fme.assessment_type_id
+            GROUP BY fme.student_id, fme.subject_id, fme.paper_id, fme.assessment_type_id
         ");
         $stmt->execute([":batch_id" => $selectedBatchId]);
         $scoreRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
