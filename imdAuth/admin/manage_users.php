@@ -197,7 +197,7 @@ $roles = $pdo->query("SELECT * FROM roles ORDER BY role_id ASC")->fetchAll();
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary text-uppercase"><?= e($u['role_name']) ?></span>
+                                        <span class="badge bg-secondary"><?= e(roleDisplayLabel($u['role_name'])) ?></span>
                                     </td>
                                     <td>
                                         <div class="text-muted small"><?= e($u['department'] ?? 'Administrative') ?></div>
@@ -264,7 +264,7 @@ $roles = $pdo->query("SELECT * FROM roles ORDER BY role_id ASC")->fetchAll();
                                                                 <select class="form-select form-select-sm" name="role_id">
                                                                     <?php foreach ($roles as $r): ?>
                                                                         <option value="<?= $r['role_id'] ?>" <?= $u['role_id'] == $r['role_id'] ? 'selected' : '' ?>>
-                                                                            <?= e($r['role_name']) ?>
+                                                                            <?= e(roleDisplayLabel($r['role_name'])) ?>
                                                                         </option>
                                                                     <?php endforeach; ?>
                                                                 </select>

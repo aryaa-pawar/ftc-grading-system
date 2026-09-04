@@ -14,6 +14,16 @@ function e(?string $string): string {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+function roleDisplayLabel(?string $role): string {
+    switch (strtoupper(trim((string)$role))) {
+        case 'GUIDE': case 'TEACHER': case 'FACULTY': return 'Faculty / Lecturer';
+        case 'VERIFICATION': return 'Scrutiny';
+        case 'SUPER_ADMIN': return 'Super Admin';
+        case 'ADMIN': case 'DEPT_ADMIN': return 'Admin';
+        default: return ucwords(strtolower(str_replace('_', ' ', (string)$role)));
+    }
+}
+
 /**
  * Set flash alert message
  */

@@ -160,7 +160,7 @@ require_once __DIR__ . '/../includes/header.php';
                 Name: <?= htmlspecialchars($scrutinyOfficer['full_name'] ?? 'Not available') ?><br>
                 Email: <?= htmlspecialchars($scrutinyOfficer['email'] ?? 'Not available') ?><br>
                 Contact Number: <?= htmlspecialchars($scrutinyContact !== '' ? $scrutinyContact : 'Not available') ?><br>
-                Role: <?= htmlspecialchars($scrutinyOfficer['role_name'] ?? 'Scrutiny Officer') ?>
+                Role: <?= htmlspecialchars(roleDisplayLabel($scrutinyOfficer['role_name'] ?? 'verification')) ?>
             </section>
 
 

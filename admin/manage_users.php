@@ -270,7 +270,7 @@ $pageTitle = 'Manage Users';
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary text-uppercase"><?= e($u['role_name']) ?></span>
+                                        <span class="badge bg-secondary"><?= e(roleDisplayLabel($u['role_name'])) ?></span>
                                     </td>
                                     <td>
                                         <div class="text-muted small"><?= e($u['department'] ?? 'Administrative') ?></div>

@@ -110,7 +110,7 @@ $adminCount = $pdo->query("SELECT COUNT(*) FROM users u JOIN roles r ON u.role_i
                     <?php endif; ?>
                 </ul>
                 <div class="d-flex align-items-center text-white gap-3">
-                    <span class="small">Logged in: <strong><?= e($auth['full_name']) ?></strong> (<?= e($auth['role_name']) ?>)</span>
+                    <span class="small">Logged in: <strong><?= e($auth['full_name']) ?></strong> (<?= e(roleDisplayLabel($auth['role_name'])) ?>)</span>
                     <a href="<?= baseUrl('logout.php') ?>" class="btn btn-outline-light btn-sm">Logout</a>
                 </div>
             </div>

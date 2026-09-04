@@ -205,7 +205,7 @@ $pendingUsers = $stmtPending->fetchAll();
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <div>
                                     <h5 class="fw-bold text-imd-navy mb-1"><?= e($user['full_name']) ?></h5>
-                                    <span class="badge bg-secondary text-capitalize"><?= e($user['role_name']) ?> Application</span>
+                                    <span class="badge bg-secondary"><?= e(roleDisplayLabel($user['role_name'])) ?> Application</span>
                                 </div>
                                 <small class="text-muted">Applied: <?= date('d M Y, H:i', strtotime($user['created_at'])) ?></small>
                             </div>
