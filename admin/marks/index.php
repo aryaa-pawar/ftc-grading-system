@@ -1000,6 +1000,9 @@ require_once __DIR__ . "/../../includes/header.php";
                                             <a href="edit_internal.php?student_id=<?php echo $studentId; ?>" class="action-btn edit-action">
                                                 Edit
                                             </a>
+                                            <a href="full_edit.php?batch_id=<?php echo $selectedBatchId; ?>&student_id=<?php echo $studentId; ?>" class="action-btn edit-action">
+                                                Full Marks Edit
+                                            </a>
                                         </td>
 
                                     </tr>
