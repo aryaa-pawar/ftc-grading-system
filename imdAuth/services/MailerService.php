@@ -17,8 +17,11 @@ class MailerService {
         $senderEmail = $_ENV['MAIL_FROM_ADDRESS'] ?? getenv('MAIL_FROM_ADDRESS');
         $senderName = $_ENV['MAIL_FROM_NAME'] ?? getenv('MAIL_FROM_NAME');
         $logFile = __DIR__ . '/../storage/logs/app_error.log';
+        $maskedEmail = self::maskedEmail($toEmail);
+        error_log("{$failureLabel} attempt started [Recipient: {$maskedEmail}]");
 
         if (!is_string($apiKey) || trim($apiKey) === '' || !filter_var($senderEmail, FILTER_VALIDATE_EMAIL) || !is_string($senderName) || trim($senderName) === '') {
+            error_log("{$failureLabel} failed [Recipient: {$maskedEmail}]: email configuration is missing or invalid");
             self::ensureLogDirectory();
             error_log("{$failureLabel} configuration is missing or invalid.\n", 3, $logFile);
             return false;
@@ -32,6 +35,7 @@ class MailerService {
         ], JSON_UNESCAPED_UNICODE);
 
         if ($payload === false) {
+            error_log("{$failureLabel} failed [Recipient: {$maskedEmail}]: request body encoding failed");
             self::ensureLogDirectory();
             error_log("{$failureLabel} failed to encode request body.\n", 3, $logFile);
             return false;
@@ -50,8 +54,10 @@ class MailerService {
         $curlError = curl_error($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        error_log("{$failureLabel} provider response [Recipient: {$maskedEmail}, HTTP: {$httpCode}]");
 
         if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+            error_log("{$failureLabel} success [Recipient: {$maskedEmail}, HTTP: {$httpCode}]");
             return true;
         }
 
@@ -63,8 +69,16 @@ class MailerService {
             }
         }
         self::ensureLogDirectory();
+        error_log("{$failureLabel} provider error [Recipient: {$maskedEmail}, HTTP: {$httpCode}]: {$safeMessage}");
         error_log("{$failureLabel} failed [HTTP {$httpCode}]: {$safeMessage}\n", 3, $logFile);
         return false;
+    }
+
+    private static function maskedEmail(string $email): string {
+        $parts = explode('@', $email, 2);
+        if (count($parts) !== 2) return '[invalid-email]';
+        $local = $parts[0];
+        return (strlen($local) <= 2 ? substr($local, 0, 1) : substr($local, 0, 2) . '***') . '@' . $parts[1];
     }
 
     /**
@@ -152,4 +166,3 @@ class MailerService {
     }
 
 }
-

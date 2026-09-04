@@ -66,10 +66,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'resend_otp') {
         logAudit($userId, 'OTP_SENT');
 
         $sent = MailerService::sendOtpEmail($userEmail, $userName, $newOtpCode);
-        if (!$sent && ($_ENV['APP_ENV'] ?? 'development') === 'development') {
-            setFlash('warning', 'A new OTP was generated, but email failed. Please check app error logs or try again.');
-        } else {
+        if ($sent) {
             setFlash('info', 'A new 6-digit OTP code has been sent to your email.');
+        } else {
+            setFlash('danger', 'Unable to send OTP email. Please try again.');
         }
 
         header('Location: ' . baseUrl('verify-otp.php'));

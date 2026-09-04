@@ -124,11 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $mailSent = MailerService::sendOtpEmail($user['email'], $user['full_name'] ?? 'User', $otpCode);
 
                         if (!$mailSent) {
-                            if (($_ENV['APP_ENV'] ?? 'development') === 'development') {
-                                setFlash('warning', 'OTP generated, but email sending failed. Please check app error logs or click Resend.');
-                            } else {
-                                setFlash('warning', 'OTP generated, but email sending failed. Please check app error logs or click Resend.');
-                            }
+                            setFlash('danger', 'Unable to send OTP email. Please try again.');
                         } else {
                             setFlash('info', 'A 6-digit OTP code has been sent to your email address.');
                         }
