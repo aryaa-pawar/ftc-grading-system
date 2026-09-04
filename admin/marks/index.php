@@ -324,6 +324,10 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
     $paperRow = array_fill(0, count($headers), '');
     $subjectRow = array_fill(0, count($headers), '');
     foreach ($identityHeaders as $index => $label) $paperRow[$index] = $label;
+    $summaryStart = count($headers) - 3;
+    foreach (['Grand Total', 'Percentage', 'Result'] as $offset => $label) {
+        $paperRow[$summaryStart + $offset] = $label;
+    }
     foreach ($paperHeader as $group) $paperRow[$group['start'] - 1] = $group['label'];
     foreach ($subjectHeader as $group) $subjectRow[$group['start'] - 1] = $group['label'];
     $sheet->fromArray([['FTC Marks Tabulation - ' . $currentBatch['batch_name']]], null, 'A1');
@@ -342,6 +346,10 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
     }
     foreach ($subjectHeader as $group) {
         if ($group['start'] < $group['end']) $sheet->mergeCells(Coordinate::stringFromColumnIndex($group['start']) . '3:' . Coordinate::stringFromColumnIndex($group['end']) . '3');
+    }
+    for ($column = $summaryStart + 1; $column <= $summaryStart + 3; $column++) {
+        $summaryColumn = Coordinate::stringFromColumnIndex($column);
+        $sheet->mergeCells($summaryColumn . '2:' . $summaryColumn . '5');
     }
 
     $excelRow = 6;
@@ -401,12 +409,14 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
     $sheet->getStyle('A2:' . $lastColumn . '3')->getAlignment()->setTextRotation(90);
     $sheet->getStyle('A4:' . $lastColumn . '5')->getAlignment()->setTextRotation(90);
     $sheet->getStyle('A2:F5')->getAlignment()->setTextRotation(0);
+    $sheet->getStyle(Coordinate::stringFromColumnIndex($summaryStart + 1) . '2:' . $lastColumn . '5')->getAlignment()->setTextRotation(0);
     $sheet->getStyle('A3:' . $lastColumn . $excelRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
     $sheet->freezePane('G6');
     $sheet->setAutoFilter('A1:' . $lastColumn . ($excelRow - 1));
     $identityWidths = [5, 24, 13, 18, 22, 16];
     foreach ($identityWidths as $index => $width) $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
     for ($column = count($identityHeaders) + 1; $column <= count($headers); $column++) $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($column))->setWidth(5);
+    for ($column = $summaryStart + 1; $column <= $summaryStart + 3; $column++) $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($column))->setWidth(12);
     $sheet->getRowDimension(1)->setRowHeight(24);
     $sheet->getRowDimension(2)->setRowHeight(90);
     $sheet->getRowDimension(3)->setRowHeight(105);
