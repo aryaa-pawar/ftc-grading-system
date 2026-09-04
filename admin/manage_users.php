@@ -185,8 +185,8 @@ $pageTitle = 'Manage Users';
                 <div class="col-md-3">
                     <select class="form-select" name="role">
                         <option value="">-- All Roles --</option>
-                        <option value="guide" <?= $filterRole === 'guide' ? 'selected' : '' ?>>Guide / Supervisor</option>
-                        <option value="verification" <?= $filterRole === 'verification' ? 'selected' : '' ?>>Verification Officer</option>
+                        <option value="guide" <?= $filterRole === 'guide' ? 'selected' : '' ?>>Faculty / Lecturer</option>
+                        <option value="verification" <?= $filterRole === 'verification' ? 'selected' : '' ?>>Scrutiny Officer</option>
                         <option value="super_admin" <?= $filterRole === 'super_admin' ? 'selected' : '' ?>>Super Admin</option>
                     </select>
                 </div>

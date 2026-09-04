@@ -421,7 +421,7 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
         class="<?php echo adminMenuActive("assignments"); ?>"
     >
 
-        Faculty Assignment
+        Faculty Subject Assignment
 
     </a>
 

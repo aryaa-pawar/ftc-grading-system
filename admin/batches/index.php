@@ -54,6 +54,7 @@ try {
             commenced_date,
             completed_date,
             station,
+            status,
             created_at,
             updated_at
         FROM batches
@@ -440,7 +441,7 @@ require_once "../../includes/header.php";
                                 text-align:left;
                             ">
 
-                                Station
+                                Status
 
                             </th>
 
@@ -580,6 +581,11 @@ require_once "../../includes/header.php";
                                 </td>
 
 
+
+                                <!-- STATUS -->
+                                <td style="padding:12px;border-bottom:1px solid #eeeeee;">
+                                    <?php echo htmlspecialchars($batch['status'] ?? (($batch['is_locked'] ?? 0) ? 'Completed' : 'Running')); ?>
+                                </td>
 
                                 <!-- ACTIONS -->
 

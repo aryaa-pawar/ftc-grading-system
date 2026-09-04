@@ -37,7 +37,7 @@ if (($_SERVER["REQUEST_METHOD"] ?? "") === "POST") {
     $batchNumber = trim($_POST["batch_number"] ?? "");
     $startDate = $_POST["start_date"] ?? $_POST["commenced_date"] ?? "";
     $endDate = $_POST["end_date"] ?? $_POST["completed_date"] ?? "";
-    $status = $_POST["status"] ?? "Active";
+    $status = $_POST["status"] ?? "Running";
     $isLocked = ($status === "Completed" || $status === "Locked") ? 1 : 0;
 
     if ($batchName === "") {
@@ -190,18 +190,11 @@ Update batch information.
 >
 
 <?php
-$currentStatus = $batch["status"] ?? (($batch["is_locked"] ?? 0) == 1 ? "Completed" : "Active");
-if ($currentStatus === "Open") {
-    $currentStatus = "Active";
-}
+$currentStatus = $batch["status"] ?? (($batch["is_locked"] ?? 0) == 1 ? "Completed" : "Running");
 ?>
 
-<option
-    value="Active"
-    <?php echo $currentStatus === "Active" ? "selected" : ""; ?>
->
-Active
-</option>
+<option value="Running" <?php echo $currentStatus === "Running" ? "selected" : ""; ?>>Running</option>
+<option value="Result Declared" <?php echo $currentStatus === "Result Declared" ? "selected" : ""; ?>>Result Declared</option>
 
 <option
     value="Completed"

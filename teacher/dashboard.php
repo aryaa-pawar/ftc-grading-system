@@ -47,6 +47,7 @@ try {
                 faculty_id,
                 faculty_name,
                 email,
+                contact_number,
                 created_at
             FROM faculties
             WHERE faculty_id = ?
@@ -74,6 +75,7 @@ try {
                 faculty_id,
                 faculty_name,
                 email,
+                contact_number,
                 created_at
             FROM faculties
             ORDER BY faculty_id DESC
@@ -927,6 +929,8 @@ try {
 
                 </div>
 
+
+                <div class="faculty-email">Contact Number: <?php echo htmlspecialchars($faculty['contact_number'] ?? 'Not available'); ?></div>
 
                 <div class="faculty-id">
 

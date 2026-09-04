@@ -14,7 +14,14 @@ require_once __DIR__ . '/../includes/auth.php';
 require_permission('verification.access');
 require_once __DIR__ . '/../config/database.php';
 
-$pageTitle = "Verification Dashboard";
+$pageTitle = "Scrutiny Dashboard";
+$scrutinyOfficer = current_user();
+$scrutinyContact = '';
+if ($scrutinyOfficer) {
+    $contactStmt = $pdo->prepare('SELECT phone FROM profiles WHERE user_id = :user_id LIMIT 1');
+    $contactStmt->execute([':user_id' => $scrutinyOfficer['user_id']]);
+    $scrutinyContact = (string)($contactStmt->fetchColumn() ?: '');
+}
 
 
 /*
@@ -148,6 +155,14 @@ require_once __DIR__ . '/../includes/header.php';
             overflow-x:auto;
         ">
 
+            <section style="background:#fff;padding:18px 22px;border-radius:8px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                <strong>Scrutiny Officer</strong><br>
+                Name: <?= htmlspecialchars($scrutinyOfficer['full_name'] ?? 'Not available') ?><br>
+                Email: <?= htmlspecialchars($scrutinyOfficer['email'] ?? 'Not available') ?><br>
+                Contact Number: <?= htmlspecialchars($scrutinyContact !== '' ? $scrutinyContact : 'Not available') ?><br>
+                Role: <?= htmlspecialchars($scrutinyOfficer['role_name'] ?? 'Scrutiny Officer') ?>
+            </section>
+
 
             <!-- =================================================
                  PAGE TITLE
@@ -163,7 +178,7 @@ require_once __DIR__ . '/../includes/header.php';
                     font-size:32px;
                 ">
 
-                    Verification Dashboard
+                    Scrutiny Dashboard
 
                 </h1>
 

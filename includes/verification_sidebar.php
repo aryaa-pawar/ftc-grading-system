@@ -198,7 +198,7 @@ $verifBase    = $appBase . "/verification";
         <div class="brand-text">
 
             <h2>
-                Marks Verification
+                Marks Scrutiny
             </h2>
 
             <span>
@@ -237,7 +237,7 @@ $verifBase    = $appBase . "/verification";
         <div class="nav-section">
 
             <span class="nav-section-title">
-                MARKS VERIFICATION
+                MARKS SCRUTINY
             </span>
 
         </div>
@@ -266,7 +266,7 @@ $verifBase    = $appBase . "/verification";
             </span>
 
             <span>
-                Verification Dashboard
+                Scrutiny Dashboard
             </span>
 
         </a>

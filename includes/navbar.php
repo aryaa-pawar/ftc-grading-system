@@ -138,7 +138,7 @@ if (!$isVerificationPanel) {
         font-size: 16px;
         flex-shrink: 0;
     ">
-        <?php echo $isVerificationPanel ? 'Verification Officer' : 'Admin'; ?>
+        <?php echo $isVerificationPanel ? 'Scrutiny Officer' : 'Admin'; ?>
         <?php if ($isVerificationPanel): ?>
             <a
                 href="<?php echo htmlspecialchars($appBase . '/logout.php', ENT_QUOTES, 'UTF-8'); ?>"

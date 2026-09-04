@@ -11,6 +11,7 @@ $batchNumber = "";
 $commencedDate = "";
 $completedDate = "";
 $station = "";
+$status = "Running";
 
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -34,6 +35,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $station = trim(
         $_POST["station"] ?? ""
     );
+    $status = $_POST["status"] ?? "Running";
 
 
     /*
@@ -84,7 +86,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     batch_name,
                     commenced_date,
                     completed_date,
-                    station
+                    station,
+                    status
                 )
                 VALUES
                 (
@@ -92,7 +95,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     :batch_name,
                     :commenced_date,
                     :completed_date,
-                    :station
+                    :station,
+                    :status
                 )
             ");
 
@@ -112,7 +116,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $completedDate,
 
                 ":station" =>
-                    $station
+                    $station,
+                ":status" => $status
 
             ]);
 
@@ -416,6 +421,15 @@ require_once "../../includes/header.php";
 
                     </div>
 
+
+                    <div style="margin-bottom:25px;">
+                        <label for="status" style="display:block;font-weight:bold;margin-bottom:8px;">Status</label>
+                        <select id="status" name="status" required style="width:100%;padding:11px;border:1px solid #cccccc;border-radius:5px;">
+                            <option value="Running" <?= $status === 'Running' ? 'selected' : '' ?>>Running</option>
+                            <option value="Result Declared" <?= $status === 'Result Declared' ? 'selected' : '' ?>>Result Declared</option>
+                            <option value="Completed" <?= $status === 'Completed' ? 'selected' : '' ?>>Completed</option>
+                        </select>
+                    </div>
 
                     <!-- BUTTONS -->
 

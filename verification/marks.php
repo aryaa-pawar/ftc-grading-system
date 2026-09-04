@@ -576,7 +576,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Marks Review - Verification Officer</title>
+<title>Marks Review - Scrutiny Officer</title>
     <style>
     .marks-page {
         background: #f4f6f8;
@@ -888,13 +888,13 @@ if ($selectedBatchId > 0 && !empty($students)) {
             <div style="max-width:100%;">
 
                 <div class="no-print" style="margin-bottom:10px;">
-                    <h1 style="margin:0; font-size:26px; color:#1f4e79;">Marks Review (Verification Panel)</h1>
+                    <h1 style="margin:0; font-size:26px; color:#1f4e79;">Marks Review (Scrutiny Panel)</h1>
                     <p style="margin:5px 0 0; color:#666666;">Comprehensive marks tabulation review for verification officers.</p>
                 </div>
 
                 <!-- READ ONLY NOTICE -->
                 <div class="readonly-box no-print">
-                    <strong>🔒 Read-Only Verification Mode</strong>
+                    <strong>🔒 Read-Only Scrutiny Mode</strong>
                     <span>Marks displayed in this table are for verification and review only. Editing is not permitted from this panel.</span>
                 </div>
 

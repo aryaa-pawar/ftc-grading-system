@@ -9,7 +9,7 @@
 
 require_once "../../config/database.php";
 
-$pageTitle = "Faculty Assignment";
+$pageTitle = "Faculty Subject Assignment";
 
 $message = "";
 $error = "";
@@ -96,7 +96,8 @@ try {
             s.is_elective,
 
             f.faculty_name,
-            f.email
+            f.email,
+            f.contact_number
 
         FROM subject_faculty_mapping sfm
 
@@ -233,7 +234,7 @@ require_once "../../includes/header.php";
                         font-size:32px;
                     ">
 
-                        Faculty Assignment
+                        Faculty Subject Assignment
 
                     </h1>
 
@@ -617,6 +618,7 @@ require_once "../../includes/header.php";
                                     Email
 
                                 </th>
+                                <th style="background:#1f4e79;color:#ffffff;padding:13px;text-align:left;">Contact Number</th>
 
 
                                 <th style="
@@ -791,6 +793,8 @@ require_once "../../includes/header.php";
                                 </td>
 
 
+
+                                <td style="padding:13px;border-bottom:1px solid #eeeeee;"><?php echo htmlspecialchars($row['contact_number'] ?? 'Not available'); ?></td>
 
                                 <!-- TYPE -->
 

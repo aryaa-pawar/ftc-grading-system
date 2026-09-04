@@ -16,7 +16,7 @@ try {
     $stmt = $pdo->prepare("
         UPDATE batches
         SET
-            status = 'Active',
+            status = 'Running',
             is_locked = 0
         WHERE batch_id = :batch_id
     ");
