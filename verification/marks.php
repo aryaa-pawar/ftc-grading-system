@@ -889,13 +889,13 @@ if ($selectedBatchId > 0 && !empty($students)) {
 
                 <div class="no-print" style="margin-bottom:10px;">
                     <h1 style="margin:0; font-size:26px; color:#1f4e79;">Marks Review (Scrutiny Panel)</h1>
-                    <p style="margin:5px 0 0; color:#666666;">Comprehensive marks tabulation review for verification officers.</p>
+                    <p style="margin:5px 0 0; color:#666666;">Comprehensive marks tabulation review for scrutiny officers.</p>
                 </div>
 
                 <!-- READ ONLY NOTICE -->
                 <div class="readonly-box no-print">
                     <strong>🔒 Read-Only Scrutiny Mode</strong>
-                    <span>Marks displayed in this table are for verification and review only. Editing is not permitted from this panel.</span>
+                    <span>Marks displayed in this table are for scrutiny and review only. Editing is not permitted from this panel.</span>
                 </div>
 
                 <?php if (!empty($errorMessage)): ?>
@@ -958,7 +958,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
                 <!-- BATCH DETAILS BANNER -->
                 <?php if ($currentBatch !== null): ?>
                     <div style="background:#ffffff; border:1px solid #dddddd; padding:15px 18px; margin-top:20px; border-radius:6px;">
-                        <strong>FTC CLASS MARKS VERIFICATION REGISTER</strong>
+                        <strong>FTC CLASS MARKS SCRUTINY REGISTER</strong>
                         &nbsp; | &nbsp;
                         Batch: <strong><?php echo h($currentBatch["batch_name"]); ?></strong>
                         &nbsp; | &nbsp;

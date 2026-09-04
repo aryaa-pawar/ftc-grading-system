@@ -107,7 +107,7 @@ if (!$isVerificationPanel) {
                     <?php endif; ?>
                 </summary>
                 <div style="position:absolute; right:0; top:30px; z-index:1000; width:360px; max-height:430px; overflow-y:auto; background:#ffffff; color:#222222; border:1px solid #d5d5d5; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.2); text-align:left;">
-                    <div style="padding:12px 14px; border-bottom:1px solid #eeeeee; font-weight:bold; color:#1f4e79;">Verification Notifications</div>
+                    <div style="padding:12px 14px; border-bottom:1px solid #eeeeee; font-weight:bold; color:#1f4e79;">Scrutiny Notifications</div>
                     <?php if (empty($adminNotifications)): ?>
                         <div style="padding:18px 14px; color:#777; font-size:13px;">No notifications yet.</div>
                     <?php else: ?>

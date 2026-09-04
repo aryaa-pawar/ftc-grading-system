@@ -3,7 +3,7 @@
 /*
 |--------------------------------------------------------------------------
 | FTC Grading & Tabulation Management System
-| Marks Verification Officer - Dashboard
+| Marks Scrutiny Officer - Dashboard
 |--------------------------------------------------------------------------
 */
 
@@ -138,7 +138,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 
         <!-- =================================================
-             VERIFICATION SIDEBAR
+             SCRUTINY SIDEBAR
         ================================================== -->
 
         <?php require_once __DIR__ . '/../includes/verification_sidebar.php'; ?>

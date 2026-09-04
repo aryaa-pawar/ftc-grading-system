@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guide Registration - IMD Portal</title>
+    <title>Faculty / Lecturer Registration - IMD Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?= baseUrl('assets/css/imd-auth.css') ?>">
 </head>
@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <h3 class="card-title text-imd-navy">Thank You for Registering!</h3>
                             <p class="card-text text-muted my-3">
-                                Your Guide registration account has been successfully submitted and is currently <strong>pending approval</strong> by an IMD Administrator.
+                                Your Faculty / Lecturer registration account has been successfully submitted and is currently <strong>pending approval</strong> by an IMD Administrator.
                             </p>
                             <p class="text-muted small">
                                 Once approved, you will receive an email confirmation and can log in with your credentials.
@@ -127,8 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="card card-auth p-4">
                         <div class="card-body">
-                            <h3 class="card-title text-imd-navy mb-1 fw-bold">Guide / Supervisor Registration</h3>
-                            <p class="text-muted small mb-4">IMD Scientist & Faculty Supervisor Portal Registration</p>
+                            <h3 class="card-title text-imd-navy mb-1 fw-bold">Faculty / Lecturer Registration</h3>
+                            <p class="text-muted small mb-4">IMD Scientist & Faculty / Lecturer Portal Registration</p>
 
                             <?php if (!empty($errors)): ?>
                                 <div class="alert alert-danger">

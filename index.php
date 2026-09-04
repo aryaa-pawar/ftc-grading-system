@@ -346,7 +346,7 @@ ini_set('display_errors', 1);
 
 
         /* =====================================================
-           VERIFICATION BUTTON
+           SCRUTINY BUTTON
         ====================================================== */
 
         .verification .panel-number {
@@ -502,7 +502,7 @@ ini_set('display_errors', 1);
         </h1>
 
         <p>
-            Academic Marks Management and Verification Portal
+           Academic Marks Management and Scrutiny Portal
         </p>
 
     </div>
@@ -626,7 +626,7 @@ ini_set('display_errors', 1);
 
 
             <!-- =================================================
-                 MARKS VERIFICATION OFFICER
+                 MARKS SCRUTINY OFFICER
             ================================================== -->
 
             <div class="panel verification">
@@ -637,7 +637,7 @@ ini_set('display_errors', 1);
 
 
                 <h2>
-                    Marks Verification Officer
+                    Scrutiny Officer
                 </h2>
 
 
@@ -651,7 +651,7 @@ ini_set('display_errors', 1);
 
 
                 <div class="role-label">
-                    Marks Verification
+                    Marks Scrutiny
                 </div>
 
 
@@ -660,7 +660,7 @@ ini_set('display_errors', 1);
                     class="button"
                 >
 
-                    Enter Verification Panel
+                    Enter Scrutiny Panel
 
                 </a>
 

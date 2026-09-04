@@ -127,14 +127,14 @@ $profile = $stmt->fetch();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile - IMD Guide Portal</title>
+    <title>My Profile - IMD Faculty Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?= baseUrl('assets/css/imd-auth.css') ?>">
 </head>
 <body class="bg-light d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg navbar-dark bg-imd-navy shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="<?= baseUrl('teacher/dashboard.php') ?>">IMD Faculty & Guide Portal</a>
+            <a class="navbar-brand fw-bold" href="<?= baseUrl('teacher/dashboard.php') ?>">IMD Faculty Portal</a>
             <div class="collapse navbar-collapse">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -157,7 +157,7 @@ $profile = $stmt->fetch();
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="card card-dashboard p-4">
-                    <h3 class="card-title text-imd-navy mb-4 border-bottom pb-2">Guide Profile Management</h3>
+                    <h3 class="card-title text-imd-navy mb-4 border-bottom pb-2">Faculty Profile Management</h3>
 
                     <?php if (!empty($errors)): ?>
                         <div class="alert alert-danger">
@@ -194,7 +194,7 @@ $profile = $stmt->fetch();
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label text-muted small mb-0">Account Role (Read-only)</label>
-                                <div class="fw-bold text-imd-navy">Research Guide / Supervisor</div>
+                        <div class="fw-bold text-imd-navy">Faculty / Lecturer</div>
                             </div>
                         </div>
 

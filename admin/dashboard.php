@@ -1076,7 +1076,7 @@ try {
                 <?php endif; ?>
             </summary>
             <div class="notification-menu">
-                <div class="notification-title">Verification Notifications</div>
+                <div class="notification-title">Scrutiny Notifications</div>
                 <?php if (empty($adminNotifications)): ?>
                     <div class="notification-empty">No notifications yet.</div>
                 <?php else: ?>

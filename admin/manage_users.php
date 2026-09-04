@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if (!$isSuperAdmin) {
         http_response_code(403);
-        die('Only Super Admin can create verification users.');
+        die('Only Super Admin can create scrutiny users.');
     }
 
     $name = trim($_POST['verification_name'] ?? '');
@@ -57,9 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $pdo->commit();
             logAudit($auth['user_id'], "VERIFICATION_USER_CREATED (Target User ID: {$newUserId})");
             if (MailerService::sendVerificationOfficerCredentials($email, $name, $password)) {
-                setFlash('success', "Verification user created successfully for {$email}. Credentials were emailed.");
+                setFlash('success', "Scrutiny user created successfully for {$email}. Credentials were emailed.");
             } else {
-                setFlash('warning', "Verification user created successfully, but the credentials email could not be sent.");
+                setFlash('warning', "Scrutiny user created successfully, but the credentials email could not be sent.");
             }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -208,7 +208,7 @@ $pageTitle = 'Manage Users';
 
         <?php if ($isSuperAdmin): ?>
             <div class="card card-dashboard p-4 mb-4 border-primary">
-                <h5 class="text-imd-navy fw-bold mb-3">Create Verification User</h5>
+                <h5 class="text-imd-navy fw-bold mb-3">Create Scrutiny User</h5>
                 <form action="manage_users.php" method="POST" class="row g-3">
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="create_verification_user">
@@ -228,7 +228,7 @@ $pageTitle = 'Manage Users';
                         <button type="submit" class="btn btn-primary w-100">Add</button>
                     </div>
                 </form>
-                <div class="form-text mt-2">The account is created active and will use OTP verification at login.</div>
+                <div class="form-text mt-2">The account is created active and will use OTP scrutiny at login.</div>
             </div>
         <?php endif; ?>
 
@@ -337,7 +337,7 @@ $pageTitle = 'Manage Users';
                                                                 <select class="form-select form-select-sm" name="role_id">
                                                                     <?php foreach ($roles as $r): ?>
                                                                         <option value="<?= $r['role_id'] ?>" <?= $u['role_id'] == $r['role_id'] ? 'selected' : '' ?>>
-                                                                            <?= e($r['role_name'] === 'verification' ? 'Verification' : ($r['role_name'] === 'guide' ? 'Guide / Supervisor' : 'Super Admin')) ?>
+                                                                            <?= e($r['role_name'] === 'verification' ? 'Scrutiny' : ($r['role_name'] === 'guide' ? 'Faculty / Lecturer' : 'Super Admin')) ?>
                                                                         </option>
                                                                     <?php endforeach; ?>
                                                                 </select>
