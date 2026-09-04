@@ -296,37 +296,60 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Marks Register');
 
-    $headers = ['S. No.', 'Student Name', 'Designation', 'Qualification', 'Roll No.'];
+    $identityHeaders = ['S. No.', 'Student Name', 'Designation', 'Qualification', 'Roll No.', 'RMC / Station'];
+    $paperHeader = [];
+    $subjectHeader = [];
+    $componentHeader = [];
+    $maxHeader = [];
+    $headers = $identityHeaders;
     foreach ($paperGroups as $paperGroup) {
+        $paperStart = count($headers) + 1;
         foreach ($paperGroup['subjects'] as $subject) {
             $paperLabel = '[' . $paperGroup['paper_code'] . '] ' . $paperGroup['paper_name'];
             $subjectLabel = '[' . $subject['subject_code'] . '] ' . $subject['subject_name'];
-            $headers[] = $paperLabel . ' / ' . $subjectLabel . ' / Internal (' . number_format($subject['max_internal'], 2) . ')';
-            $headers[] = $paperLabel . ' / ' . $subjectLabel . ' / Mid-Term (' . number_format($subject['max_midterm'], 2) . ')';
-            $headers[] = $paperLabel . ' / ' . $subjectLabel . ' / Final (' . number_format($subject['max_final'], 2) . ')';
-            $headers[] = $paperLabel . ' / ' . $subjectLabel . ' / Total (' . number_format($subject['max_total'], 2) . ')';
+            $subjectStart = count($headers) + 1;
+            foreach ([['Internal', $subject['max_internal']], ['Mid-Term', $subject['max_midterm']], ['Final', $subject['max_final']], ['Total', $subject['max_total']]] as $component) {
+                $headers[] = $component[0];
+                $componentHeader[] = $component[0];
+                $maxHeader[] = number_format((float)$component[1], 2);
+            }
+            $subjectHeader[] = ['label' => $subjectLabel, 'start' => $subjectStart, 'end' => count($headers)];
         }
+        $paperHeader[] = ['label' => $paperLabel, 'start' => $paperStart, 'end' => count($headers)];
     }
     $headers[] = 'Grand Total';
     $headers[] = 'Percentage';
     $headers[] = 'Result';
 
-    $sheet->fromArray([$headers], null, 'A1');
-    $sheet->fromArray([[
-        'Batch: ' . $currentBatch['batch_name'],
-        'Station: ' . $currentBatch['station'],
-        'Commenced: ' . formatDateIndian($currentBatch['commenced_date'] ?? ''),
-        'Completed: ' . formatDateIndian($currentBatch['completed_date'] ?? '')
-    ]], null, 'A2');
+    $paperRow = array_fill(0, count($headers), '');
+    $subjectRow = array_fill(0, count($headers), '');
+    foreach ($identityHeaders as $index => $label) $paperRow[$index] = $label;
+    foreach ($paperHeader as $group) $paperRow[$group['start'] - 1] = $group['label'];
+    foreach ($subjectHeader as $group) $subjectRow[$group['start'] - 1] = $group['label'];
+    $sheet->fromArray([['FTC Marks Tabulation - ' . $currentBatch['batch_name']]], null, 'A1');
+    $sheet->fromArray([$paperRow], null, 'A2');
+    $sheet->fromArray([$subjectRow], null, 'A3');
+    $sheet->fromArray([array_merge(array_fill(0, count($identityHeaders), ''), $componentHeader)], null, 'A4');
+    $sheet->fromArray([array_merge(array_fill(0, count($identityHeaders), ''), $maxHeader)], null, 'A5');
     $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
-    $sheet->mergeCells('A2:' . $lastColumn . '2');
+    $sheet->mergeCells('A1:' . $lastColumn . '1');
+    foreach ($identityHeaders as $index => $label) {
+        $col = Coordinate::stringFromColumnIndex($index + 1);
+        $sheet->mergeCells($col . '2:' . $col . '5');
+    }
+    foreach ($paperHeader as $group) {
+        if ($group['start'] < $group['end']) $sheet->mergeCells(Coordinate::stringFromColumnIndex($group['start']) . '2:' . Coordinate::stringFromColumnIndex($group['end']) . '2');
+    }
+    foreach ($subjectHeader as $group) {
+        if ($group['start'] < $group['end']) $sheet->mergeCells(Coordinate::stringFromColumnIndex($group['start']) . '3:' . Coordinate::stringFromColumnIndex($group['end']) . '3');
+    }
 
-    $excelRow = 3;
+    $excelRow = 6;
     $serialNo = 1;
     foreach ($students as $student) {
         $studentId = (int)$student['student_id'];
         $hasAnyMark = false;
-        $rowValues = [$serialNo++, $student['student_name'], $student['designation'], $student['qualification'], $student['roll_no']];
+        $rowValues = [$serialNo++, $student['student_name'], $student['designation'], $student['qualification'], $student['roll_no'], $student['rmc'] ?? ''];
 
         foreach ($paperGroups as $paperGroup) {
             foreach ($paperGroup['subjects'] as $subject) {
@@ -367,15 +390,31 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
         $sheet->fromArray([$rowValues], null, 'A' . $excelRow++);
     }
 
-    $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+    $sheet->getStyle('A1:' . $lastColumn . '5')->getFont()->setBold(true);
+    $sheet->getStyle('A1:' . $lastColumn . '5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
     $sheet->getStyle('A1:' . $lastColumn . '1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B4B73');
-    $sheet->getStyle('A1:' . $lastColumn . '2')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_CENTER);
+    $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->getColor()->setARGB('FFFFFFFF');
+    $sheet->getStyle('A2:' . $lastColumn . '5')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFD9EAF7');
+    $sheet->getStyle('A2:' . $lastColumn . '5')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+    $sheet->getStyle('A6:' . $lastColumn . ($excelRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+    $sheet->getStyle('A6:' . $lastColumn . ($excelRow - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+    $sheet->getStyle('A2:' . $lastColumn . '3')->getAlignment()->setTextRotation(90);
+    $sheet->getStyle('A4:' . $lastColumn . '5')->getAlignment()->setTextRotation(90);
+    $sheet->getStyle('A2:F5')->getAlignment()->setTextRotation(0);
     $sheet->getStyle('A3:' . $lastColumn . $excelRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-    $sheet->freezePane('F3');
+    $sheet->freezePane('G6');
     $sheet->setAutoFilter('A1:' . $lastColumn . ($excelRow - 1));
-    for ($column = 1; $column <= count($headers); $column++) {
-        $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($column))->setAutoSize(true);
-    }
+    $identityWidths = [5, 24, 13, 18, 22, 16];
+    foreach ($identityWidths as $index => $width) $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($index + 1))->setWidth($width);
+    for ($column = count($identityHeaders) + 1; $column <= count($headers); $column++) $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($column))->setWidth(5);
+    $sheet->getRowDimension(1)->setRowHeight(24);
+    $sheet->getRowDimension(2)->setRowHeight(90);
+    $sheet->getRowDimension(3)->setRowHeight(105);
+    $sheet->getRowDimension(4)->setRowHeight(72);
+    $sheet->getRowDimension(5)->setRowHeight(42);
+    $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE)->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4)->setFitToWidth(1)->setFitToHeight(0);
+    $sheet->getPageMargins()->setTop(0.25)->setRight(0.25)->setBottom(0.25)->setLeft(0.25)->setHeader(0.1)->setFooter(0.1);
+    $sheet->getPageSetup()->setHorizontalCentered(true)->setRowsToRepeatAtTopByStartAndEnd(1, 5)->setPrintArea('A1:' . $lastColumn . ($excelRow - 1));
 
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="marks-register-' . $selectedBatchId . '.xlsx"');
