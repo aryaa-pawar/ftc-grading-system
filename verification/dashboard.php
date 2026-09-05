@@ -17,6 +17,7 @@ require_once __DIR__ . '/../config/database.php';
 $pageTitle = "Scrutiny Dashboard";
 $scrutinyOfficer = current_user();
 $scrutinyContact = '';
+$navbarDisplayName = (string)($scrutinyOfficer['full_name'] ?? 'Scrutiny Officer');
 if ($scrutinyOfficer) {
     $contactStmt = $pdo->prepare('SELECT phone FROM profiles WHERE user_id = :user_id LIMIT 1');
     $contactStmt->execute([':user_id' => $scrutinyOfficer['user_id']]);
