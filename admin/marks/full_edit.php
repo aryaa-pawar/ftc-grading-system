@@ -3,7 +3,6 @@ require_once __DIR__.'/../../includes/auth.php';
 require_once __DIR__.'/../../includes/csrf.php';
 require_once __DIR__.'/../../config/database.php';
 require_once __DIR__.'/../../includes/functions.php';
-if(!in_array($admin['role_name']??'', ['admin','dept_admin','super_admin'], true)){http_response_code(403);exit('403 Forbidden');}
 $batchId=(int)($_GET['batch_id']??0); $studentId=(int)($_GET['student_id']??0); $entryId=(int)($_GET['entry_id']??0);
 if ($entryId && (!$batchId || !$studentId)) {
     $context=$pdo->prepare('SELECT s.batch_id,f.student_id FROM faculty_marks_entry f JOIN students s ON s.student_id=f.student_id WHERE f.entry_id=:entry_id');
