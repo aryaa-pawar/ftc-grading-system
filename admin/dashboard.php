@@ -1334,7 +1334,7 @@ try {
 
             <div class="stat-title">
 
-                Faculty Assignments
+                Faculty subject assigned
 
             </div>
 

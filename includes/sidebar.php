@@ -473,6 +473,15 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
 
     </a>
 
+    <a
+        href="<?php echo $adminBase; ?>/results/certificates.php"
+        class="<?php echo (basename($_SERVER['SCRIPT_NAME'] ?? '') === 'certificates.php') ? 'active' : ''; ?>"
+    >
+
+        Certificate Panel
+
+    </a>
+
     <?php if (!function_exists('has_permission') || has_permission('admin.access')): ?>
     <div class="admin-sidebar-section">Identity & Access</div>
     <a href="<?php echo $adminBase; ?>/pending_approvals.php" class="<?php echo $pendingApprovalsActive; ?>">Pending Approvals</a>

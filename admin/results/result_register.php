@@ -1017,6 +1017,11 @@ View student results for the selected batch.
             <?php endif; ?>
         </div>
 
+        <div class="filter-field">
+            <label style="font-weight:bold; font-size:13px; margin-bottom:6px; display:block;">Certificate Panel:</label>
+            <a href="certificates.php?batch_id=<?= $selectedBatchId ?>" style="height:38px; background:#0d6efd; color:#ffffff; border:none; border-radius:4px; padding:0 14px; font-weight:bold; text-decoration:none; display:inline-flex; align-items:center; font-size:13px;">📜 Certificate Panel</a>
+        </div>
+
     </div>
 </form>
 
