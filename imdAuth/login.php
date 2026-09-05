@@ -125,7 +125,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$mailSent) {
                             setFlash('danger', 'Unable to send OTP email. Please try again.');
                         } else {
-                            setFlash('info', 'A 6-digit OTP code has been sent to your email address.');
+                            $apiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY');
+                            if (empty($apiKey)) {
+                                setFlash('info', 'A 6-digit OTP code has been generated. <strong>[DEV MODE OTP: ' . $otpCode . ']</strong>');
+                            } else {
+                                setFlash('info', 'A 6-digit OTP code has been sent to your email address.');
+                            }
                         }
 
                         header('Location: ' . baseUrl('verify-otp.php'));

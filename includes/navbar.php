@@ -47,6 +47,21 @@ if (!$isVerificationPanel) {
     require_once __DIR__ . '/../config/database.php';
     $scrutinyUser = function_exists('current_user') ? current_user() : null;
     if ($scrutinyUser) {
+        if (empty($navbarDisplayName) || $navbarDisplayName === 'Scrutiny Officer') {
+            $displayNameCandidate = trim($scrutinyUser['full_name'] ?? '');
+            if (empty($displayNameCandidate) && !empty($scrutinyUser['user_id'])) {
+                try {
+                    $stmt = $pdo->prepare('SELECT full_name FROM profiles WHERE user_id = :uid LIMIT 1');
+                    $stmt->execute([':uid' => $scrutinyUser['user_id']]);
+                    $displayNameCandidate = trim((string)$stmt->fetchColumn());
+                } catch (Exception $e) {}
+            }
+            if (!empty($displayNameCandidate)) {
+                $navbarDisplayName = $displayNameCandidate;
+            } elseif (!empty($scrutinyUser['email'])) {
+                $navbarDisplayName = $scrutinyUser['email'];
+            }
+        }
         try {
             $stmt = $pdo->prepare('SELECT COUNT(*) FROM scrutiny_notifications WHERE recipient_user_id = :user_id AND is_read = 0');
             $stmt->execute([':user_id' => $scrutinyUser['user_id']]);
@@ -138,7 +153,7 @@ if (!$isVerificationPanel) {
         font-size: 16px;
         flex-shrink: 0;
     ">
-        <?php echo htmlspecialchars($isVerificationPanel ? ($navbarDisplayName ?? 'Scrutiny Officer') : 'Admin', ENT_QUOTES, 'UTF-8'); ?>
+        <?php echo htmlspecialchars(!empty($navbarDisplayName) ? $navbarDisplayName : ($isVerificationPanel ? 'Scrutiny Officer' : 'Admin'), ENT_QUOTES, 'UTF-8'); ?>
         <?php if ($isVerificationPanel): ?>
             <a
                 href="<?php echo htmlspecialchars($appBase . '/logout.php', ENT_QUOTES, 'UTF-8'); ?>"

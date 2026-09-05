@@ -12,18 +12,37 @@ class MailerService {
         }
     }
 
+    private static function getEnvVal(string $key): ?string {
+        if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+            return $_ENV[$key];
+        }
+        $val = getenv($key);
+        if ($val !== false && $val !== '') {
+            return $val;
+        }
+        return null;
+    }
+
     private static function sendBrevoEmail(string $toEmail, string $toName, string $subject, string $htmlContent, string $failureLabel): bool {
-        $apiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY');
-        $senderEmail = $_ENV['MAIL_FROM_ADDRESS'] ?? getenv('MAIL_FROM_ADDRESS');
-        $senderName = $_ENV['MAIL_FROM_NAME'] ?? getenv('MAIL_FROM_NAME');
+        $apiKey = self::getEnvVal('BREVO_API_KEY');
+        $senderEmail = self::getEnvVal('MAIL_FROM_ADDRESS') ?? 'no-reply@localhost';
+        $senderName = self::getEnvVal('MAIL_FROM_NAME') ?? 'IMD Training Division';
+        $appEnv = self::getEnvVal('APP_ENV') ?? 'development';
         $logFile = __DIR__ . '/../storage/logs/app_error.log';
         $maskedEmail = self::maskedEmail($toEmail);
         error_log("{$failureLabel} attempt started [Recipient: {$maskedEmail}]");
 
-        if (!is_string($apiKey) || trim($apiKey) === '' || !filter_var($senderEmail, FILTER_VALIDATE_EMAIL) || !is_string($senderName) || trim($senderName) === '') {
-            error_log("{$failureLabel} failed [Recipient: {$maskedEmail}]: email configuration is missing or invalid");
-            self::ensureLogDirectory();
-            error_log("{$failureLabel} configuration is missing or invalid.\n", 3, $logFile);
+        self::ensureLogDirectory();
+
+        if (empty($apiKey)) {
+            error_log("{$failureLabel} missing BREVO_API_KEY [Recipient: {$maskedEmail}]");
+            error_log("{$failureLabel} missing BREVO_API_KEY.\n", 3, $logFile);
+            
+            if ($appEnv === 'development') {
+                $devLog = __DIR__ . '/../storage/logs/dev_mail.log';
+                error_log("[" . date('Y-m-d H:i:s') . "] [DEV MAIL LOG] To: {$toEmail} | Subject: {$subject}\n" . strip_tags($htmlContent) . "\n----------------------------------------\n", 3, $devLog);
+                return true;
+            }
             return false;
         }
 
@@ -36,7 +55,6 @@ class MailerService {
 
         if ($payload === false) {
             error_log("{$failureLabel} failed [Recipient: {$maskedEmail}]: request body encoding failed");
-            self::ensureLogDirectory();
             error_log("{$failureLabel} failed to encode request body.\n", 3, $logFile);
             return false;
         }
@@ -54,6 +72,7 @@ class MailerService {
         $curlError = curl_error($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+
         error_log("{$failureLabel} provider response [Recipient: {$maskedEmail}, HTTP: {$httpCode}]");
 
         if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
@@ -68,9 +87,15 @@ class MailerService {
                 $safeMessage = preg_replace('/[^\x20-\x7E]/', '', $decoded['message']);
             }
         }
-        self::ensureLogDirectory();
         error_log("{$failureLabel} provider error [Recipient: {$maskedEmail}, HTTP: {$httpCode}]: {$safeMessage}");
         error_log("{$failureLabel} failed [HTTP {$httpCode}]: {$safeMessage}\n", 3, $logFile);
+
+        if ($appEnv === 'development') {
+            $devLog = __DIR__ . '/../storage/logs/dev_mail.log';
+            error_log("[" . date('Y-m-d H:i:s') . "] [DEV MAIL FALLBACK LOG] To: {$toEmail} | Subject: {$subject}\n" . strip_tags($htmlContent) . "\n----------------------------------------\n", 3, $devLog);
+            return true;
+        }
+
         return false;
     }
 

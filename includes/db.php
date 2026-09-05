@@ -28,15 +28,26 @@ if (($_ENV['APP_ENV'] ?? getenv('APP_ENV') ?? 'development') !== 'development') 
     ini_set('display_startup_errors', '0');
 }
 
+function getEnvHelper(string $key): ?string {
+    if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+        return $_ENV[$key];
+    }
+    $val = getenv($key);
+    if ($val !== false && $val !== '') {
+        return $val;
+    }
+    return null;
+}
+
 function getDbConnection(): PDO {
     static $pdo = null;
 
     if ($pdo === null) {
-        $host     = $_ENV['DB_HOST']     ?? getenv('DB_HOST')     ?? $_ENV['MYSQLHOST']     ?? getenv('MYSQLHOST')     ?? '127.0.0.1';
-        $port     = $_ENV['DB_PORT']     ?? getenv('DB_PORT')     ?? $_ENV['MYSQLPORT']     ?? getenv('MYSQLPORT')     ?? '3306';
-        $dbname   = $_ENV['DB_NAME']     ?? getenv('DB_NAME')     ?? $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE') ?? 'ftc_grading';
-        $user     = $_ENV['DB_USER']     ?? getenv('DB_USER')     ?? $_ENV['MYSQLUSER']     ?? getenv('MYSQLUSER')     ?? 'root';
-        $pass     = $_ENV['DB_PASS']     ?? getenv('DB_PASS')     ?? $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD') ?? '';
+        $host     = getEnvHelper('DB_HOST')     ?? getEnvHelper('MYSQLHOST')     ?? '127.0.0.1';
+        $port     = getEnvHelper('DB_PORT')     ?? getEnvHelper('MYSQLPORT')     ?? '3306';
+        $dbname   = getEnvHelper('DB_NAME')     ?? getEnvHelper('MYSQLDATABASE') ?? 'ftc_grading';
+        $user     = getEnvHelper('DB_USER')     ?? getEnvHelper('MYSQLUSER')     ?? 'root';
+        $pass     = getEnvHelper('DB_PASS')     ?? getEnvHelper('MYSQLPASSWORD') ?? '';
 
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
 

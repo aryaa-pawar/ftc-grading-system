@@ -67,7 +67,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'resend_otp') {
 
         $sent = MailerService::sendOtpEmail($userEmail, $userName, $newOtpCode);
         if ($sent) {
-            setFlash('info', 'A new 6-digit OTP code has been sent to your email.');
+            $apiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY');
+            if (empty($apiKey)) {
+                setFlash('info', 'A new 6-digit OTP code has been generated. <strong>[DEV MODE OTP: ' . $newOtpCode . ']</strong>');
+            } else {
+                setFlash('info', 'A new 6-digit OTP code has been sent to your email.');
+            }
         } else {
             setFlash('danger', 'Unable to send OTP email. Please try again.');
         }
