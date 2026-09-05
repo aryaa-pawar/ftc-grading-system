@@ -481,29 +481,15 @@ CREATE TABLE admin_marks_audit (
 
     student_id INT NOT NULL,
 
-    batch_id INT NULL,
-
     subject_id INT NOT NULL,
-
-    paper_id INT NULL,
-
-    assessment_type_id INT NULL,
-
-    faculty_id INT NULL,
 
     old_marks DECIMAL(5,2) NULL,
 
-    old_is_absent TINYINT(1) NULL,
-
     new_marks DECIMAL(5,2) NULL,
-
-    new_is_absent TINYINT(1) NULL,
 
     admin_name VARCHAR(150) NULL,
 
     reason VARCHAR(500) NULL,
-
-    edit_mode VARCHAR(30) NULL,
 
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
