@@ -73,7 +73,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 $resetStmt->execute($applicableEntryIds);
                 error_log('Scrutiny unlock reset entries: ' . json_encode(['student_id' => $studentId, 'batch_id' => $returnBatchId, 'entry_ids' => $applicableEntryIds, 'rows_affected' => $resetStmt->rowCount()], JSON_UNESCAPED_SLASHES));
             }
-            $studentResetStmt = $pdo->prepare('UPDATE students SET verification_status = NULL WHERE student_id = :student_id AND batch_id = :batch_id AND verification_status = \'correct\'');
+            $studentResetStmt = $pdo->prepare('UPDATE students SET verification_status = NULL, verification_notified_at = NULL WHERE student_id = :student_id AND batch_id = :batch_id AND verification_status = \'correct\'');
             $studentResetStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
             if ($studentResetStmt->rowCount() !== 1) {
                 throw new Exception('The confirmed student state could not be unlocked.');
@@ -95,38 +95,87 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
     if ($action === 'confirm_student' && $studentId > 0 && $returnBatchId > 0) {
         try {
             $pdo->beginTransaction();
-            $reviewStmt = $pdo->prepare("SELECT DISTINCT fme.entry_id, fme.student_id, fme.paper_id, fme.subject_id, fme.assessment_type_id, fme.marks_obtained, fme.is_absent, fme.verification_status FROM faculty_marks_entry fme INNER JOIN students st ON st.student_id = fme.student_id INNER JOIN paper_subject_mapping psm ON psm.batch_id = st.batch_id AND psm.paper_id = fme.paper_id AND psm.subject_id = fme.subject_id INNER JOIN subjects sub ON sub.subject_id = fme.subject_id LEFT JOIN elective_subject_mapping esm ON esm.subject_id = fme.subject_id AND LOWER(TRIM(esm.group_code)) = LOWER(TRIM(st.group_code)) WHERE fme.student_id = :student_id AND st.batch_id = :batch_id AND fme.assessment_type_id IN (1, 2, 3) AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1) AND (COALESCE(sub.is_elective, 0) = 0 OR esm.subject_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM elective_subject_mapping esm_any WHERE esm_any.subject_id = fme.subject_id)) ORDER BY fme.entry_id ASC");
+            $reviewStmt = $pdo->prepare("SELECT fme.entry_id, fme.student_id, fme.paper_id, fme.subject_id, fme.assessment_type_id, fme.marks_obtained, fme.is_absent, fme.verification_status, fme.verification_notified_at, COALESCE((SELECT sc.case_id FROM scrutiny_cases sc WHERE sc.student_id = fme.student_id AND sc.subject_id = fme.subject_id AND COALESCE(sc.paper_id, 0) = COALESCE(fme.paper_id, 0) ORDER BY sc.case_id DESC LIMIT 1), 0) AS scrutiny_case_id, COALESCE((SELECT sc.status FROM scrutiny_cases sc WHERE sc.student_id = fme.student_id AND sc.subject_id = fme.subject_id AND COALESCE(sc.paper_id, 0) = COALESCE(fme.paper_id, 0) ORDER BY sc.case_id DESC LIMIT 1), '') AS scrutiny_case_status FROM faculty_marks_entry fme INNER JOIN students st ON st.student_id = fme.student_id INNER JOIN paper_subject_mapping psm ON psm.batch_id = st.batch_id AND psm.paper_id = fme.paper_id AND psm.subject_id = fme.subject_id INNER JOIN subjects sub ON sub.subject_id = fme.subject_id LEFT JOIN elective_subject_mapping esm ON esm.subject_id = fme.subject_id AND LOWER(TRIM(esm.group_code)) = LOWER(TRIM(st.group_code)) WHERE fme.student_id = :student_id AND st.batch_id = :batch_id AND fme.assessment_type_id IN (1, 2, 3) AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1) AND (COALESCE(sub.is_elective, 0) = 0 OR esm.subject_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM elective_subject_mapping esm_any WHERE esm_any.subject_id = fme.subject_id)) ORDER BY fme.subject_id ASC, fme.paper_id ASC, fme.assessment_type_id ASC");
             $reviewStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
             $reviewRows = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
-            $applicableCount = count($reviewRows);
-            $correctCount = count(array_filter($reviewRows, static function ($row) { return ($row['verification_status'] ?? '') === 'correct'; }));
-            $wrongCount = count(array_filter($reviewRows, static function ($row) { return ($row['verification_status'] ?? '') === 'wrong'; }));
-            $unreviewedCount = $applicableCount - $correctCount - $wrongCount;
-            if ($applicableCount === 0 || $correctCount !== $applicableCount || $wrongCount > 0) {
-                error_log('Scrutiny confirmation blocked: ' . json_encode([
-                    'student_id' => $studentId,
-                    'batch_id' => $returnBatchId,
-                    'TOTAL_APPLICABLE' => $applicableCount,
-                    'CORRECT_COUNT' => $correctCount,
-                    'WRONG_COUNT' => $wrongCount,
-                    'UNREVIEWED_COUNT' => $unreviewedCount,
-                    'ACTIVE_SCRUTINY_CASE_COUNT' => 0,
-                    'blocking_rows' => $reviewRows
-                ], JSON_UNESCAPED_SLASHES));
-                if ($wrongCount > 0) {
-                    throw new Exception($wrongCount . ' mark' . ($wrongCount === 1 ? ' is' : 's are') . ' marked Wrong. Notify Admin before final confirmation.');
+            $subjectStates = [];
+            foreach ($reviewRows as $row) {
+                $paperIdForRow = (int)($row['paper_id'] ?? 0);
+                $subjectIdForRow = (int)($row['subject_id'] ?? 0);
+                $subjectKey = $paperIdForRow . ':' . $subjectIdForRow;
+                if (!isset($subjectStates[$subjectKey])) {
+                    $subjectStates[$subjectKey] = [];
                 }
-                throw new Exception($unreviewedCount . ' mark' . ($unreviewedCount === 1 ? ' still needs' : 's still need') . ' review before this student can be confirmed.');
+                $subjectStates[$subjectKey][] = $row;
             }
+
+            $subjectReviewSummary = [];
+            foreach ($subjectStates as $key => $entries) {
+                $subjectReviewSummary[$key] = summarizeSubjectReviewState($entries);
+            }
+
+            $blockingSubjects = [];
+            $unreviewedSubjects = 0;
+            $wrongSubjects = 0;
+            foreach ($subjectReviewSummary as $key => $summary) {
+                if ($summary['state'] === 'unreviewed') {
+                    $unreviewedSubjects++;
+                    $blockingSubjects[] = $key;
+                } elseif ($summary['state'] === 'wrong' || $summary['state'] === 'awaiting_admin' || $summary['state'] === 'awaiting_recheck') {
+                    $wrongSubjects++;
+                    $blockingSubjects[] = $key;
+                }
+            }
+
             $activeCaseStmt = $pdo->prepare("SELECT COUNT(*) FROM scrutiny_cases sc INNER JOIN students s ON s.student_id = sc.student_id WHERE sc.student_id = :student_id AND s.batch_id = :batch_id AND sc.status IN ('awaiting_admin', 'awaiting_recheck')");
             $activeCaseStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
             $activeCaseCount = (int)$activeCaseStmt->fetchColumn();
+
+            $subjectDiagnostic = [];
+            foreach ($reviewRows as $row) {
+                $subjectDiagnostic[] = [
+                    'student_id' => (int)($row['student_id'] ?? 0),
+                    'entry_id' => (int)($row['entry_id'] ?? 0),
+                    'paper_id' => (int)($row['paper_id'] ?? 0),
+                    'subject_id' => (int)($row['subject_id'] ?? 0),
+                    'assessment_type_id' => (int)($row['assessment_type_id'] ?? 0),
+                    'verification_status' => $row['verification_status'] ?? null,
+                    'scrutiny_case_id' => (int)($row['scrutiny_case_id'] ?? 0),
+                    'scrutiny_case_status' => $row['scrutiny_case_status'] ?? null,
+                    'verification_notified_at' => $row['verification_notified_at'] ?? null,
+                ];
+            }
+            error_log('Scrutiny final confirm audit: ' . json_encode([
+                'student_id' => $studentId,
+                'batch_id' => $returnBatchId,
+                'applicable_rows' => count($reviewRows),
+                'applicable_subjects' => count($subjectStates),
+                'unreviewed_subjects' => $unreviewedSubjects,
+                'wrong_subjects' => $wrongSubjects,
+                'active_scrutiny_case_count' => $activeCaseCount,
+                'subject_states' => $subjectReviewSummary,
+                'diagnostic_rows' => $subjectDiagnostic,
+            ], JSON_UNESCAPED_SLASHES));
+
             if ($activeCaseCount > 0) {
-                $caseLogStmt = $pdo->prepare('SELECT case_id, status, entry_id FROM scrutiny_cases WHERE student_id = :student_id ORDER BY case_id ASC');
+                $caseLogStmt = $pdo->prepare('SELECT case_id, status, subject_id, paper_id, entry_id FROM scrutiny_cases WHERE student_id = :student_id ORDER BY case_id ASC');
                 $caseLogStmt->execute([':student_id' => $studentId]);
                 error_log('Scrutiny confirmation blocked by active cases: ' . json_encode(['student_id' => $studentId, 'batch_id' => $returnBatchId, 'ACTIVE_SCRUTINY_CASE_COUNT' => $activeCaseCount, 'cases' => $caseLogStmt->fetchAll(PDO::FETCH_ASSOC)], JSON_UNESCAPED_SLASHES));
                 throw new Exception('This student has an active scrutiny case awaiting Admin correction or recheck.');
             }
+
+            if (count($subjectStates) === 0) {
+                throw new Exception('No applicable marks were found for this student.');
+            }
+
+            if ($unreviewedSubjects > 0) {
+                throw new Exception($unreviewedSubjects . ' subject' . ($unreviewedSubjects === 1 ? '' : 's') . ' still need review before this student can be confirmed.');
+            }
+
+            if ($wrongSubjects > 0) {
+                throw new Exception($wrongSubjects . ' subject' . ($wrongSubjects === 1 ? '' : 's') . ' are marked Wrong. Notify Admin before final confirmation.');
+            }
+
             $stmt = $pdo->prepare('UPDATE students SET verification_status = :status, scrutiny_remarks = :scrutiny_remarks WHERE student_id = :student_id AND batch_id = :batch_id');
             $stmt->execute([
                 ':status' => 'correct',
@@ -336,84 +385,117 @@ function displayMark($value)
     return h($value);
 }
 
+function summarizeSubjectReviewState(array $entries): array
+{
+    $eligible = [];
+    foreach ($entries as $entry) {
+        if (($entry['marks_obtained'] ?? null) !== null || (int)($entry['is_absent'] ?? 0) === 1) {
+            $eligible[] = $entry;
+        }
+    }
+
+    if (empty($eligible)) {
+        return ['state' => 'unreviewed', 'eligible_count' => 0];
+    }
+
+    $correctCount = 0;
+    $wrongCount = 0;
+    $notifiedCount = 0;
+    foreach ($eligible as $entry) {
+        $status = (string)($entry['verification_status'] ?? '');
+        if ($status === 'correct') {
+            $correctCount++;
+        }
+        if ($status === 'wrong') {
+            $wrongCount++;
+        }
+        if (!empty($entry['verification_notified_at'])) {
+            $notifiedCount++;
+        }
+    }
+
+    if ($wrongCount > 0) {
+        return ['state' => 'wrong', 'eligible_count' => count($eligible), 'wrong_count' => $wrongCount, 'correct_count' => $correctCount, 'notified_count' => $notifiedCount];
+    }
+
+    if ($correctCount === count($eligible)) {
+        return ['state' => 'correct', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount, 'notified_count' => $notifiedCount];
+    }
+
+    if ($notifiedCount > 0) {
+        return ['state' => 'awaiting_admin', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount, 'notified_count' => $notifiedCount];
+    }
+
+    return ['state' => 'unreviewed', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount, 'notified_count' => 0];
+}
+
 function subjectReviewControls(array $entries, int $studentId, int $batchId, int $paperId, int $subjectId, bool $locked = false): string
 {
+    if (empty($entries)) {
+        return '';
+    }
+
     foreach ($entries as $entry) {
         if ((int)($entry['active_case_count'] ?? 0) > 0) {
             return '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;font-weight:bold;">Admin notified / Recheck required</span>';
         }
-    }
-    $latestScrutinyStatus = '';
-    foreach ($entries as $entry) {
-        if (!empty($entry['scrutiny_status'])) {
-            $latestScrutinyStatus = $entry['scrutiny_status'];
-            break;
-        }
-    }
-    if ($latestScrutinyStatus === 'verified') {
-        return '<span class="no-print verification-status" style="display:block;color:#087f3e;font-size:10px;font-weight:bold;">Confirmed</span>';
-    }
-    if ($latestScrutinyStatus === 'awaiting_recheck') {
-        $firstEntry = reset($entries);
-        $entryId = (int)($firstEntry['entry_id'] ?? 0);
-        return '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
-            . csrfField()
-            . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
-            . '<input type="hidden" name="student_id" value="' . $studentId . '">'
-            . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
-            . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
-            . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
-            . '<input type="hidden" name="verification_action" value="verify_recheck">'
-            . '<input type="hidden" name="ajax" value="1">'
-            . '<button type="submit" style="background:#087f3e;color:#fff;border:none;padding:2px 6px;font-size:10px;border-radius:3px;cursor:pointer;" title="Click to verify corrected marks">&#10003; Verify Re-check</button>'
-            . '</form>';
     }
 
     if ($locked) {
         return '<span class="no-print verification-status" style="display:block;color:#1f4b73;font-size:10px;">Confirmed</span>';
     }
 
-    if (empty($entries)) {
-        return '';
+    $summary = summarizeSubjectReviewState($entries);
+    $status = $summary['state'];
+    if ($status === 'correct') {
+        return '<span class="no-print verification-status" style="display:block;color:#087f3e;font-size:10px;">Correct</span>';
     }
 
-    $status = '';
-    foreach ($entries as $entry) {
-        if (($entry['verification_status'] ?? '') === 'wrong') {
-            $status = 'wrong';
-            break;
-        }
-        if (($entry['verification_status'] ?? '') === 'correct') {
-            $status = 'correct';
-        }
+    if ($status === 'wrong') {
+        $firstEntry = reset($entries);
+        $entryId = (int)($firstEntry['entry_id'] ?? 0);
+        $controls = '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
+            . csrfField()
+            . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
+            . '<input type="hidden" name="student_id" value="' . $studentId . '">'
+            . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
+            . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
+            . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
+            . '<input type="hidden" name="verification_status" value="wrong">'
+            . '<input type="hidden" name="verification_action" value="notify_entry">'
+            . '<input type="hidden" name="ajax" value="1">'
+            . '<input type="hidden" name="scrutiny_reason" value="">'
+            . '<button type="submit" title="Notify admin about this subject mark">Notify Admin</button>'
+            . '</form>'
+            . '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;">Wrong</span>';
+        return $controls;
     }
-    if (count(array_filter($entries, function ($entry) {
-        return !empty($entry['verification_notified_at']);
-    })) === count($entries)) {
+
+    if ($status === 'awaiting_admin') {
         return '<span class="no-print" style="display:block;color:#1f4e79;font-size:10px;">Admin notified</span>';
     }
 
-    $firstEntry = reset($entries);
-    $entryId = (int)$firstEntry['entry_id'];
-    $controls = '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
-        . csrfField()
-        . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
-        . '<input type="hidden" name="student_id" value="' . $studentId . '">'
-        . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
-        . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
-        . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
-        . '<input type="hidden" name="verification_status" value="' . h($status) . '">'
-        . '<input type="hidden" name="verification_action" value="set_entry_status">'
-        . '<input type="hidden" name="ajax" value="1">'
-        . '<input type="hidden" name="scrutiny_reason" value="">'
-        . '<button type="submit" name="verification_action" value="set_entry_status" title="Mark this subject correct" onclick="this.form.verification_status.value=\'correct\';">&#10003;</button>'
-        . '<button type="submit" name="verification_action" value="set_entry_status" title="Mark this subject wrong" onclick="this.form.verification_status.value=\'wrong\';">&#10007;</button>';
-    if ($status === 'wrong') {
-        $controls .= '<button type="submit" name="verification_action" value="notify_entry" title="Notify admin about this subject mark">Notify Admin</button>';
+    if ($status === 'unreviewed') {
+        $firstEntry = reset($entries);
+        $entryId = (int)($firstEntry['entry_id'] ?? 0);
+        $controls = '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
+            . csrfField()
+            . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
+            . '<input type="hidden" name="student_id" value="' . $studentId . '">'
+            . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
+            . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
+            . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
+            . '<input type="hidden" name="verification_status" value="">'
+            . '<input type="hidden" name="verification_action" value="set_entry_status">'
+            . '<input type="hidden" name="ajax" value="1">'
+            . '<input type="hidden" name="scrutiny_reason" value="">'
+            . '<button type="submit" name="verification_action" value="set_entry_status" title="Mark this subject correct" onclick="this.form.verification_status.value=\'correct\';">&#10003;</button>'
+            . '<button type="submit" name="verification_action" value="set_entry_status" title="Mark this subject wrong" onclick="this.form.verification_status.value=\'wrong\';">&#10007;</button>'
+            . '</form>';
+        return $controls;
     }
-    return $controls . '</form>'
-        . ($status === 'correct' ? '<span class="no-print verification-status" style="display:block;color:#087f3e;font-size:10px;">Correct</span>' : '')
-        . ($status === 'wrong' ? '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;">Wrong</span>' : '');
+
+    return '';
 }
 
 /* =========================================================
@@ -599,15 +681,6 @@ if ($selectedBatchId > 0 && !empty($students)) {
                 MAX(fme.is_absent) AS is_absent,
                  MAX(fme.verification_status) AS verification_status,
                                  MAX(fme.verification_notified_at) AS verification_notified_at,
-                                 (
-                                        SELECT sc.status
-                                        FROM scrutiny_cases sc
-                                        WHERE sc.student_id = fme.student_id
-                                            AND sc.subject_id = fme.subject_id
-                                            AND COALESCE(sc.paper_id, 0) = COALESCE(fme.paper_id, 0)
-                                        ORDER BY sc.case_id DESC
-                                        LIMIT 1
-                                 ) AS scrutiny_status,
                                  (
                                         SELECT COUNT(*)
                                         FROM scrutiny_cases active_sc
