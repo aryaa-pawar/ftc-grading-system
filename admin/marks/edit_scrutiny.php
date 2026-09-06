@@ -126,6 +126,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['save_scrutiny
             $assessmentMarks = loadSubjectAssessmentMarks($pdo, $case);
             $reason = trim($case['reason']);
             $changedCount = 0;
+            $changedEntryIds = [];
             foreach ($assessmentMarks as $assessmentMark) {
                 $assessmentEntryId = (int)$assessmentMark['entry_id'];
                 if (!array_key_exists((string)$assessmentEntryId, $submittedMarks)) {
@@ -153,13 +154,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['save_scrutiny
                 $stmt = $pdo->prepare("INSERT INTO scrutiny_notifications (case_id, change_id, recipient_user_id, student_id, subject_id, old_marks, new_marks) VALUES (:case_id, :change_id, :recipient, :student_id, :subject_id, :old_marks, :new_marks)");
                 $stmt->execute([':case_id' => $case['case_id'], ':change_id' => $changeId, ':recipient' => $case['flagged_by_user_id'], ':student_id' => $case['student_id'], ':subject_id' => $case['subject_id'], ':old_marks' => $oldMarks, ':new_marks' => $newMarks]);
                 $changedCount++;
+                $changedEntryIds[] = $assessmentEntryId;
             }
             if ($changedCount === 0) {
                 throw new Exception('No marks were changed.');
             }
+            error_log('Scrutiny correction changed entry_ids: ' . implode(',', $changedEntryIds));
             $pdo->prepare("UPDATE scrutiny_cases SET status = 'awaiting_recheck' WHERE case_id = :case_id")->execute([':case_id' => $case['case_id']]);
             $pdo->prepare("UPDATE admin_notifications SET is_read = 1 WHERE student_id = :student_id AND (entry_id = :entry_id OR entry_id IS NULL)")->execute([':student_id' => $case['student_id'], ':entry_id' => $case['entry_id']]);
-            $pdo->prepare("UPDATE faculty_marks_entry SET verification_notified_at = NULL WHERE student_id = :student_id AND subject_id = :subject_id")->execute([':student_id' => $case['student_id'], ':subject_id' => $case['subject_id']]);
+            $changedPlaceholders = implode(',', array_fill(0, count($changedEntryIds), '?'));
+            $pdo->prepare("UPDATE faculty_marks_entry SET verification_notified_at = NULL WHERE entry_id IN ($changedPlaceholders)")->execute($changedEntryIds);
             $pdo->commit();
             $successMessage = 'All changed scrutiny marks were saved and sent for verification re-check.';
             $savedCase = true;

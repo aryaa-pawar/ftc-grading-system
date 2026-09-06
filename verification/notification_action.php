@@ -21,6 +21,11 @@ try {
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
         $notificationStudent = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$notificationStudent) throw new Exception('Notification is no longer awaiting re-check.');
+        $changedStmt = $pdo->prepare('SELECT DISTINCT entry_id FROM scrutiny_mark_change_log WHERE case_id = :case_id');
+        $changedStmt->execute([':case_id' => $notificationStudent['case_id']]);
+        $changedEntryIds = array_map('intval', $changedStmt->fetchAll(PDO::FETCH_COLUMN));
+        if (!$changedEntryIds) throw new Exception('No corrected assessment entries were found for this re-check.');
+        error_log('Scrutiny recheck verified entry_ids: ' . implode(',', $changedEntryIds));
 
         $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, read_at = COALESCE(read_at, NOW()), verified_at = NOW() WHERE notification_id = :id AND recipient_user_id = :user_id AND status = 'awaiting_recheck'");
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
@@ -29,12 +34,9 @@ try {
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
         $stmt = $pdo->prepare("UPDATE students SET verification_status = NULL WHERE student_id = :student_id AND batch_id = :batch_id");
         $stmt->execute([':student_id' => $notificationStudent['student_id'], ':batch_id' => $notificationStudent['batch_id']]);
-        $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = COALESCE(:paper_id_match, 0)");
-        $stmt->execute([
-            ':student_id' => $notificationStudent['student_id'],
-            ':subject_id' => $notificationStudent['subject_id'],
-            ':paper_id_match' => $notificationStudent['paper_id']
-        ]);
+        $changedPlaceholders = implode(',', array_fill(0, count($changedEntryIds), '?'));
+        $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE entry_id IN ($changedPlaceholders)");
+        $stmt->execute($changedEntryIds);
         $stmt = $pdo->prepare("INSERT INTO admin_notifications (student_id, batch_id, entry_id, verification_status, message) VALUES (:student_id, :batch_id, :entry_id, 'correct', :message)");
         $stmt->execute([
             ':student_id' => $notificationStudent['student_id'],
@@ -50,28 +52,24 @@ try {
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
         $notificationStudent = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$notificationStudent) throw new Exception('This re-check is no longer awaiting a response.');
+        $changedStmt = $pdo->prepare('SELECT DISTINCT entry_id FROM scrutiny_mark_change_log WHERE case_id = :case_id');
+        $changedStmt->execute([':case_id' => $notificationStudent['case_id']]);
+        $changedEntryIds = array_map('intval', $changedStmt->fetchAll(PDO::FETCH_COLUMN));
+        if (!$changedEntryIds) throw new Exception('No corrected assessment entries were found for this re-check.');
+        error_log('Scrutiny recheck rejected entry_ids: ' . implode(',', $changedEntryIds));
 
         $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, read_at = COALESCE(read_at, NOW()), verified_at = COALESCE(verified_at, NOW()) WHERE notification_id = :id AND recipient_user_id = :user_id AND status = 'awaiting_recheck'");
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
 
-        $stmt = $pdo->prepare('SELECT entry_id FROM faculty_marks_entry WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = COALESCE(:paper_id_match, 0) ORDER BY assessment_type_id ASC');
-        $stmt->execute([
-            ':student_id' => $notificationStudent['student_id'],
-            ':subject_id' => $notificationStudent['subject_id'],
-            ':paper_id_match' => $notificationStudent['paper_id']
-        ]);
-        $subjectEntryIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-        if (!$subjectEntryIds) throw new Exception('No assessment marks were found for this subject.');
-
-        $placeholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
-        $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'wrong', verification_notified_at = NOW() WHERE entry_id IN ($placeholders)");
-        $stmt->execute($subjectEntryIds);
+        $changedPlaceholders = implode(',', array_fill(0, count($changedEntryIds), '?'));
+        $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'wrong', verification_notified_at = NOW() WHERE entry_id IN ($changedPlaceholders)");
+        $stmt->execute($changedEntryIds);
 
         $stmt = $pdo->prepare("INSERT INTO admin_notifications (student_id, batch_id, entry_id, verification_status, message) VALUES (:student_id, :batch_id, :entry_id, 'wrong', :message)");
         $stmt->execute([
             ':student_id' => $notificationStudent['student_id'],
             ':batch_id' => $notificationStudent['batch_id'],
-            ':entry_id' => $subjectEntryIds[0],
+            ':entry_id' => $changedEntryIds[0],
             ':message' => 'Verification re-check marked this subject as not correct. Admin correction is required again.'
         ]);
         $stmt = $pdo->prepare("UPDATE scrutiny_cases SET status = 'awaiting_admin', reason = :reason WHERE case_id = :case_id AND status = 'awaiting_recheck'");
