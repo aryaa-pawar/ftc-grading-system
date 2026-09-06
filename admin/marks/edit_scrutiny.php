@@ -178,7 +178,7 @@ try {
     $history = [];
     $newMarksByEntry = [];
     if ($case) {
-        $stmt = $pdo->prepare("SELECT l.*, COALESCE(p.full_name, u.email) AS changed_by FROM scrutiny_mark_change_log l INNER JOIN users u ON u.user_id = l.changed_by_user_id LEFT JOIN profiles p ON p.user_id = u.user_id WHERE l.case_id = :case_id ORDER BY l.changed_at DESC");
+        $stmt = $pdo->prepare("SELECT l.*, COALESCE(p.full_name, u.email, 'Deleted user') AS changed_by FROM scrutiny_mark_change_log l LEFT JOIN users u ON u.user_id = l.changed_by_user_id LEFT JOIN profiles p ON p.user_id = u.user_id WHERE l.case_id = :case_id ORDER BY l.changed_at DESC");
         $stmt->execute([':case_id' => $case['case_id']]);
         $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($history as $log) {

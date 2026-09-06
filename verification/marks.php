@@ -52,6 +52,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
 
     if ($action === 'confirm_student' && $studentId > 0 && $returnBatchId > 0) {
         try {
+            $pdo->beginTransaction();
+            $activeCaseStmt = $pdo->prepare("SELECT COUNT(*) FROM scrutiny_cases sc INNER JOIN students s ON s.student_id = sc.student_id WHERE sc.student_id = :student_id AND s.batch_id = :batch_id AND sc.status IN ('awaiting_admin', 'awaiting_recheck')");
+            $activeCaseStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
+            if ((int)$activeCaseStmt->fetchColumn() > 0) {
+                throw new Exception('This student still has a scrutiny case awaiting action.');
+            }
             $stmt = $pdo->prepare('UPDATE students SET verification_status = :status, scrutiny_remarks = :scrutiny_remarks WHERE student_id = :student_id AND batch_id = :batch_id');
             $stmt->execute([
                 ':status' => 'correct',
@@ -59,17 +65,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 ':student_id' => $studentId,
                 ':batch_id' => $returnBatchId
             ]);
+            $pdo->commit();
             if ($isAjaxRequest) {
                 header('Content-Type: application/json; charset=UTF-8');
                 echo json_encode(['success' => true, 'action' => $action, 'confirmed' => true]);
                 exit;
             }
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Scrutiny student confirmation error: ' . $e->getMessage());
             $errorMessage = 'Unable to confirm student verification.';
         }
     }
 
-    if ($studentId > 0 && $entryId > 0 && $subjectId > 0 && $paperId > 0 && in_array($action, ['set_entry_status', 'notify_entry'], true) && in_array($status, ['correct', 'wrong'], true)) {
+    if ($studentId > 0 && $entryId > 0 && $subjectId > 0 && $paperId > 0 && in_array($action, ['set_entry_status', 'notify_entry', 'verify_recheck'], true) && ($action === 'verify_recheck' || in_array($status, ['correct', 'wrong'], true))) {
         try {
             $stmt = $pdo->prepare('SELECT verification_status FROM students WHERE student_id = :student_id AND batch_id = :batch_id');
             $stmt->execute([
@@ -92,20 +101,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 throw new Exception('Selected subject mark was not found.');
             }
 
-            if ($action === 'set_entry_status') {
-                $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
-                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = ?, verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders) AND verification_notified_at IS NULL");
-                $stmt->execute(array_merge([$status], $subjectEntryIds));
-            } elseif ($action === 'verify_recheck') {
+            if ($action === 'verify_recheck') {
+                $pdo->beginTransaction();
+                $caseStmt = $pdo->prepare("SELECT case_id FROM scrutiny_cases WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = :paper_id AND status = 'awaiting_recheck' ORDER BY case_id DESC LIMIT 1 FOR UPDATE");
+                $caseStmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId, ':paper_id' => $paperId]);
+                $caseId = (int)$caseStmt->fetchColumn();
+                if ($caseId <= 0) throw new Exception('This scrutiny case is no longer awaiting re-check.');
                 $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
                 $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders)");
                 $stmt->execute($subjectEntryIds);
-                $stmt = $pdo->prepare("UPDATE scrutiny_cases SET status = 'verified' WHERE student_id = :student_id AND subject_id = :subject_id AND status = 'awaiting_recheck'");
-                $stmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId]);
-                $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, verified_at = NOW() WHERE student_id = :student_id AND subject_id = :subject_id AND status = 'awaiting_recheck'");
-                $stmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId]);
+                $pdo->prepare('UPDATE scrutiny_cases SET status = \'verified\' WHERE case_id = ?')->execute([$caseId]);
+                $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, verified_at = NOW() WHERE case_id = ? AND status = 'awaiting_recheck'")->execute([$caseId]);
+                $pdo->commit();
+            } elseif ($action === 'set_entry_status') {
+                $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
+                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = ?, verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders) AND verification_notified_at IS NULL");
+                $stmt->execute(array_merge([$status], $subjectEntryIds));
             } else {
                 $pdo->beginTransaction();
+                $activeCaseStmt = $pdo->prepare("SELECT case_id FROM scrutiny_cases WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = :paper_id AND status IN ('awaiting_admin', 'awaiting_recheck') ORDER BY case_id DESC LIMIT 1 FOR UPDATE");
+                $activeCaseStmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId, ':paper_id' => $paperId]);
+                if ((int)$activeCaseStmt->fetchColumn() > 0) throw new Exception('This subject already has an active scrutiny case.');
                 $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
                 $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_notified_at = NOW() WHERE entry_id IN ($entryPlaceholders) AND verification_status = ? AND verification_notified_at IS NULL");
                 $stmt->execute(array_merge($subjectEntryIds, [$status]));
@@ -145,6 +161,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
+            error_log('Scrutiny verification database error: ' . $e->getMessage());
             $errorMessage = 'Unable to save verification status.';
         } catch (Exception $e) {
             if ($pdo->inTransaction()) {
@@ -180,15 +197,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 ':entry_id' => $subjectEntryIds[0],
                 ':message' => 'Verification re-check found the subject still incorrect. Admin correction is required.'
             ]);
-            $stmt = $pdo->prepare("INSERT INTO scrutiny_cases (student_id, subject_id, paper_id, entry_id, flagged_by_user_id, reason) VALUES (:student_id, :subject_id, :paper_id, :entry_id, :user_id, :reason)");
+            $stmt = $pdo->prepare("UPDATE scrutiny_cases SET status = 'awaiting_admin', entry_id = :entry_id, flagged_by_user_id = :user_id, reason = :reason WHERE case_id = (SELECT case_id FROM (SELECT case_id FROM scrutiny_cases WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = :paper_id AND status = 'verified' ORDER BY case_id DESC LIMIT 1) AS latest_case)");
             $stmt->execute([
-                ':student_id' => $studentId,
-                ':subject_id' => $subjectId,
-                ':paper_id' => $paperId,
                 ':entry_id' => $subjectEntryIds[0],
                 ':user_id' => (int)($currentUser['user_id'] ?? 0),
-                ':reason' => 'Verification re-check found the corrected subject marks are still not correct.'
+                ':reason' => 'Verification re-check found the corrected subject marks are still not correct.',
+                ':student_id' => $studentId,
+                ':subject_id' => $subjectId,
+                ':paper_id' => $paperId
             ]);
+            if ($stmt->rowCount() !== 1) {
+                throw new Exception('The existing scrutiny case could not be reopened.');
+            }
             $pdo->commit();
 
             if ($isAjaxRequest) {
