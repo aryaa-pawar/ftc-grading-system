@@ -53,19 +53,35 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
     if ($action === 'confirm_student' && $studentId > 0 && $returnBatchId > 0) {
         try {
             $pdo->beginTransaction();
-            $reviewStmt = $pdo->prepare("SELECT COUNT(*) AS applicable_count, SUM(CASE WHEN verification_status = 'correct' THEN 1 ELSE 0 END) AS correct_count, SUM(CASE WHEN verification_status = 'wrong' THEN 1 ELSE 0 END) AS wrong_count FROM faculty_marks_entry WHERE student_id = :student_id AND (marks_obtained IS NOT NULL OR is_absent = 1)");
-            $reviewStmt->execute([':student_id' => $studentId]);
-            $reviewSummary = $reviewStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-            $applicableCount = (int)($reviewSummary['applicable_count'] ?? 0);
-            $correctCount = (int)($reviewSummary['correct_count'] ?? 0);
-            $wrongCount = (int)($reviewSummary['wrong_count'] ?? 0);
+            $reviewStmt = $pdo->prepare("SELECT DISTINCT fme.entry_id, fme.student_id, fme.paper_id, fme.subject_id, fme.assessment_type_id, fme.marks_obtained, fme.is_absent, fme.verification_status FROM faculty_marks_entry fme INNER JOIN students st ON st.student_id = fme.student_id INNER JOIN paper_subject_mapping psm ON psm.batch_id = st.batch_id AND psm.paper_id = fme.paper_id AND psm.subject_id = fme.subject_id INNER JOIN subjects sub ON sub.subject_id = fme.subject_id LEFT JOIN elective_subject_mapping esm ON esm.subject_id = fme.subject_id AND LOWER(TRIM(esm.group_code)) = LOWER(TRIM(st.group_code)) WHERE fme.student_id = :student_id AND st.batch_id = :batch_id AND fme.assessment_type_id IN (1, 2, 3) AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1) AND (COALESCE(sub.is_elective, 0) = 0 OR esm.subject_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM elective_subject_mapping esm_any WHERE esm_any.subject_id = fme.subject_id)) ORDER BY fme.entry_id ASC");
+            $reviewStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
+            $reviewRows = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
+            $applicableCount = count($reviewRows);
+            $correctCount = count(array_filter($reviewRows, static function ($row) { return ($row['verification_status'] ?? '') === 'correct'; }));
+            $wrongCount = count(array_filter($reviewRows, static function ($row) { return ($row['verification_status'] ?? '') === 'wrong'; }));
+            $unreviewedCount = $applicableCount - $correctCount - $wrongCount;
             if ($applicableCount === 0 || $correctCount !== $applicableCount || $wrongCount > 0) {
-                throw new Exception('Every applicable mark must be explicitly reviewed as correct before confirmation.');
+                error_log('Scrutiny confirmation blocked: ' . json_encode([
+                    'student_id' => $studentId,
+                    'batch_id' => $returnBatchId,
+                    'TOTAL_APPLICABLE' => $applicableCount,
+                    'CORRECT_COUNT' => $correctCount,
+                    'WRONG_COUNT' => $wrongCount,
+                    'UNREVIEWED_COUNT' => $unreviewedCount,
+                    'ACTIVE_SCRUTINY_CASE_COUNT' => 0,
+                    'blocking_rows' => $reviewRows
+                ], JSON_UNESCAPED_SLASHES));
+                if ($wrongCount > 0) {
+                    throw new Exception($wrongCount . ' mark' . ($wrongCount === 1 ? ' is' : 's are') . ' marked Wrong. Notify Admin before final confirmation.');
+                }
+                throw new Exception($unreviewedCount . ' mark' . ($unreviewedCount === 1 ? ' still needs' : 's still need') . ' review before this student can be confirmed.');
             }
             $activeCaseStmt = $pdo->prepare("SELECT COUNT(*) FROM scrutiny_cases sc INNER JOIN students s ON s.student_id = sc.student_id WHERE sc.student_id = :student_id AND s.batch_id = :batch_id AND sc.status IN ('awaiting_admin', 'awaiting_recheck')");
             $activeCaseStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
-            if ((int)$activeCaseStmt->fetchColumn() > 0) {
-                throw new Exception('This student still has a scrutiny case awaiting action.');
+            $activeCaseCount = (int)$activeCaseStmt->fetchColumn();
+            if ($activeCaseCount > 0) {
+                error_log('Scrutiny confirmation blocked by active cases: ' . json_encode(['student_id' => $studentId, 'batch_id' => $returnBatchId, 'ACTIVE_SCRUTINY_CASE_COUNT' => $activeCaseCount]));
+                throw new Exception('This student has an active scrutiny case awaiting Admin correction or recheck.');
             }
             $stmt = $pdo->prepare('UPDATE students SET verification_status = :status, scrutiny_remarks = :scrutiny_remarks WHERE student_id = :student_id AND batch_id = :batch_id');
             $stmt->execute([
@@ -80,10 +96,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 echo json_encode(['success' => true, 'action' => $action, 'confirmed' => true]);
                 exit;
             }
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Scrutiny student confirmation database error: ' . $e->getMessage());
+            $errorMessage = 'Unable to confirm student verification.';
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            error_log('Scrutiny student confirmation error: ' . $e->getMessage());
-            $errorMessage = 'Unable to confirm student verification.';
+            $errorMessage = $e->getMessage();
         }
     }
 
@@ -558,9 +577,20 @@ if ($selectedBatchId > 0 && !empty($students)) {
             FROM faculty_marks_entry fme
             INNER JOIN students st
                 ON st.student_id = fme.student_id
+            INNER JOIN paper_subject_mapping psm
+                ON psm.batch_id = st.batch_id
+               AND psm.paper_id = fme.paper_id
+               AND psm.subject_id = fme.subject_id
+            INNER JOIN subjects sub
+                ON sub.subject_id = fme.subject_id
+            LEFT JOIN elective_subject_mapping esm
+                ON esm.subject_id = fme.subject_id
+               AND LOWER(TRIM(esm.group_code)) = LOWER(TRIM(st.group_code))
             WHERE st.batch_id = :batch_id
               AND (st.is_deleted = 0 OR st.is_deleted IS NULL)
+              AND fme.assessment_type_id IN (1, 2, 3)
               AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1)
+              AND (COALESCE(sub.is_elective, 0) = 0 OR esm.subject_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM elective_subject_mapping esm_any WHERE esm_any.subject_id = fme.subject_id))
             GROUP BY fme.student_id, fme.subject_id, fme.paper_id, COALESCE(fme.paper_id, 0), fme.assessment_type_id
         ");
         $stmt->execute([":batch_id" => $selectedBatchId]);
