@@ -120,6 +120,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Central account deletion. Historical marks, results, and audit rows are preserved.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_user') {
+    enforceCsrf();
+
+    if (!$isSuperAdmin) {
+        http_response_code(403);
+        die('Only Super Admin can delete user accounts.');
+    }
+
+    $targetUserId = (int)($_POST['target_user_id'] ?? 0);
+    if ($targetUserId <= 0 || $targetUserId === (int)$auth['user_id']) {
+        setFlash('danger', 'You cannot delete your own account.');
+    } else {
+        try {
+            $pdo->beginTransaction();
+
+            $stmtTarget = $pdo->prepare("SELECT u.user_id, u.email, r.role_name, p.full_name FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN profiles p ON p.user_id = u.user_id WHERE u.user_id = :uid FOR UPDATE");
+            $stmtTarget->execute([':uid' => $targetUserId]);
+            $target = $stmtTarget->fetch(PDO::FETCH_ASSOC);
+
+            if (!$target) {
+                throw new RuntimeException('User account not found.');
+            }
+            if ($target['role_name'] === 'super_admin') {
+                throw new RuntimeException('Super Admin accounts are protected from deletion.');
+            }
+
+            // Keep the faculty row and all faculty_marks_entry history intact.
+            $stmtFaculty = $pdo->prepare('UPDATE faculties SET user_id = NULL, is_deleted = 1, password = NULL WHERE user_id = :uid');
+            $stmtFaculty->execute([':uid' => $targetUserId]);
+
+            // OTP/profile rows are account-owned and may be removed.
+            $pdo->prepare('DELETE FROM otp_verifications WHERE user_id = :uid')->execute([':uid' => $targetUserId]);
+            $pdo->prepare('DELETE FROM profiles WHERE user_id = :uid')->execute([':uid' => $targetUserId]);
+            $pdo->prepare('DELETE FROM users WHERE user_id = :uid')->execute([':uid' => $targetUserId]);
+
+            if ($target['role_name'] === 'guide') {
+                $message = 'Faculty account deleted and faculty association deactivated.';
+            } elseif ($target['role_name'] === 'verification') {
+                $message = 'Scrutiny account deleted. Historical scrutiny records were preserved.';
+            } else {
+                $message = 'User account deleted successfully.';
+            }
+
+            $pdo->commit();
+            logAudit($auth['user_id'], "USER_DELETED (Target User ID: {$targetUserId})");
+            setFlash('success', $message);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('User Delete Error: ' . $e->getMessage(), 3, __DIR__ . '/../storage/logs/app_error.log');
+            setFlash('danger', 'Unable to delete the user account. No changes were made.');
+        }
+    }
+
+    header('Location: ' . baseUrl('admin/manage_users.php'));
+    exit;
+}
+
 // Search / Filter Params
 $filterRole = $_GET['role'] ?? '';
 $filterStatus = $_GET['status'] ?? '';
@@ -319,7 +379,8 @@ $pageTitle = 'Manage Users';
                                                         <h4><?= e($u['full_name']) ?></h4>
                                                         <p class="text-muted mb-1">Email: <strong><?= e($u['email']) ?></strong></p>
                                                         <p class="text-muted mb-1">Phone: <strong><?= e($u['phone'] ?? 'N/A') ?></strong></p>
-                                                        <p class="text-muted mb-1">Department: <strong><?= e($u['department'] ?? 'N/A') ?></strong></p>
+                                                <p class="text-muted mb-1">Department: <strong><?= e($u['department'] ?? 'N/A') ?></strong></p>
+                                                <p class="text-muted mb-1">Faculty/Scrutiny association: <strong><?= e($u['role_name'] === 'guide' ? 'Faculty account association is managed by the faculty record.' : ($u['role_name'] === 'verification' ? 'Scrutiny access' : 'None')) ?></strong></p>
                                                     </div>
                                                 </div>
 
@@ -360,6 +421,14 @@ $pageTitle = 'Manage Users';
                                                 <?php endif; ?>
                                             </div>
                                             <div class="modal-footer">
+                                                <?php if ($isSuperAdmin && (int)$u['user_id'] !== (int)$auth['user_id'] && $u['role_name'] !== 'super_admin'): ?>
+                                                    <form action="manage_users.php" method="POST" onsubmit="return confirm('This permanently removes the user login and access. The user must register again to regain access. Historical marks and audit records will be preserved. Continue?');">
+                                                        <?= csrfField() ?>
+                                                        <input type="hidden" name="action" value="delete_user">
+                                                        <input type="hidden" name="target_user_id" value="<?= (int)$u['user_id'] ?>">
+                                                        <button type="submit" class="btn btn-danger">Delete User</button>
+                                                    </form>
+                                                <?php endif; ?>
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                             </div>
                                         </div>

@@ -32,6 +32,23 @@ function current_user(): ?array
             $stmt = getDbConnection()->prepare('SELECT u.user_id, u.role_id, r.role_name, u.email, p.full_name FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN profiles p ON p.user_id = u.user_id WHERE u.user_id = :uid LIMIT 1');
             $stmt->execute([':uid' => $userId]);
             $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$dbUser) {
+                // A deleted account must not remain authenticated through stale session data.
+                unset(
+                    $_SESSION['user_id'],
+                    $_SESSION['role_id'],
+                    $_SESSION['role_name'],
+                    $_SESSION['role'],
+                    $_SESSION['user_email'],
+                    $_SESSION['user_name'],
+                    $_SESSION['faculty_id'],
+                    $_SESSION['faculty_name'],
+                    $_SESSION['faculty_email'],
+                    $_SESSION['pending_2fa_user_id']
+                );
+                return null;
+            }
+
             if ($dbUser) {
                 $_SESSION['role_id'] = (int)$dbUser['role_id'];
                 $_SESSION['role_name'] = $dbUser['role_name'];

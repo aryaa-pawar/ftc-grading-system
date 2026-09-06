@@ -741,28 +741,6 @@ require_once "../../includes/header.php";
                                             </a>
 
 
-                                            <!-- DELETE -->
-
-                                            <a
-                                                href="delete.php?id=<?php
-                                                    echo $teacher[
-                                                        "faculty_id"
-                                                    ];
-                                                ?>"
-                                                class="
-                                                    faculty-action
-                                                    faculty-delete
-                                                "
-                                                onclick="
-                                                    return confirm(
-                                                        'Are you sure you want to deactivate this faculty member?'
-                                                    );
-                                                "
-                                            >
-                                                Delete
-                                            </a>
-
-
                                         </td>
 
 
