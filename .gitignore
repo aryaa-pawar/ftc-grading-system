@@ -13,3 +13,5 @@ composer.phar
 !/storage/uploads/profile_photos/.gitkeep
 fix_all_students_midterm_marks.sql
 subject_paper_grouping_import_railway.sql
+
+railway_full_backup.sql
