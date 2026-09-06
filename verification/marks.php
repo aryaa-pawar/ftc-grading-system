@@ -53,6 +53,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
     if ($action === 'confirm_student' && $studentId > 0 && $returnBatchId > 0) {
         try {
             $pdo->beginTransaction();
+            $reviewStmt = $pdo->prepare("SELECT COUNT(*) AS applicable_count, SUM(CASE WHEN verification_status = 'correct' THEN 1 ELSE 0 END) AS correct_count, SUM(CASE WHEN verification_status = 'wrong' THEN 1 ELSE 0 END) AS wrong_count FROM faculty_marks_entry WHERE student_id = :student_id AND (marks_obtained IS NOT NULL OR is_absent = 1)");
+            $reviewStmt->execute([':student_id' => $studentId]);
+            $reviewSummary = $reviewStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $applicableCount = (int)($reviewSummary['applicable_count'] ?? 0);
+            $correctCount = (int)($reviewSummary['correct_count'] ?? 0);
+            $wrongCount = (int)($reviewSummary['wrong_count'] ?? 0);
+            if ($applicableCount === 0 || $correctCount !== $applicableCount || $wrongCount > 0) {
+                throw new Exception('Every applicable mark must be explicitly reviewed as correct before confirmation.');
+            }
             $activeCaseStmt = $pdo->prepare("SELECT COUNT(*) FROM scrutiny_cases sc INNER JOIN students s ON s.student_id = sc.student_id WHERE sc.student_id = :student_id AND s.batch_id = :batch_id AND sc.status IN ('awaiting_admin', 'awaiting_recheck')");
             $activeCaseStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
             if ((int)$activeCaseStmt->fetchColumn() > 0) {
@@ -514,6 +523,8 @@ if ($selectedBatchId > 0 && !empty($students)) {
                 fme.subject_id,
                 COALESCE(fme.paper_id, 0) AS paper_id,
                 fme.assessment_type_id,
+                MAX(fme.marks_obtained) AS marks_obtained,
+                MAX(fme.is_absent) AS is_absent,
                  MAX(fme.verification_status) AS verification_status,
                                  MAX(fme.verification_notified_at) AS verification_notified_at,
                                  (
@@ -1099,18 +1110,26 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                         $isStudentVerified = ($student['verification_status'] ?? '') === 'correct';
 
                                         $hasPendingNotifiedChanges = false;
+                                        $applicableMarkCount = 0;
+                                        $correctMarkCount = 0;
                                         if (isset($studentMarkEntries[$studentId])) {
                                             foreach ($studentMarkEntries[$studentId] as $paperEntries) {
                                                 foreach ($paperEntries as $subEntries) {
                                                     foreach ($subEntries as $entry) {
+                                                        if (($entry['marks_obtained'] ?? null) !== null || (int)($entry['is_absent'] ?? 0) === 1) {
+                                                            $applicableMarkCount++;
+                                                            if (($entry['verification_status'] ?? '') === 'correct') {
+                                                                $correctMarkCount++;
+                                                            }
+                                                        }
                                                         if (!empty($entry['verification_notified_at']) || ($entry['verification_status'] ?? '') === 'wrong' || in_array(($entry['scrutiny_status'] ?? ''), ['awaiting_admin', 'awaiting_recheck', 'open'], true)) {
                                                             $hasPendingNotifiedChanges = true;
-                                                            break 3;
                                                         }
                                                     }
                                                 }
                                             }
                                         }
+                                        $allApplicableMarksReviewed = $applicableMarkCount > 0 && $correctMarkCount === $applicableMarkCount && !$hasPendingNotifiedChanges;
                                     ?>
                                     <tr>
                                         <!-- S.NO -->
@@ -1239,10 +1258,10 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                                     <button 
                                                         type="submit" 
                                                         class="confirm-student-btn"
-                                                        <?php echo $hasPendingNotifiedChanges ? 'disabled title="Disabled until admin makes the notified changes from admin panel"' : ''; ?>
-                                                        style="padding:6px 14px; font-size:12px; font-weight:bold; border-radius:4px; border:none; cursor:<?php echo $hasPendingNotifiedChanges ? 'not-allowed' : 'pointer'; ?>; background:<?php echo $hasPendingNotifiedChanges ? '#cccccc' : '#1f4e79'; ?>; color:<?php echo $hasPendingNotifiedChanges ? '#666666' : '#ffffff'; ?>;"
+                                                        <?php echo !$allApplicableMarksReviewed ? 'disabled title="Review every applicable mark as Correct first"' : ''; ?>
+                                                        style="padding:6px 14px; font-size:12px; font-weight:bold; border-radius:4px; border:none; cursor:<?php echo !$allApplicableMarksReviewed ? 'not-allowed' : 'pointer'; ?>; background:<?php echo !$allApplicableMarksReviewed ? '#cccccc' : '#1f4e79'; ?>; color:<?php echo !$allApplicableMarksReviewed ? '#666666' : '#ffffff'; ?>;"
                                                     >
-                                                        Confirm
+                                                        <?php echo $allApplicableMarksReviewed ? 'Confirm' : 'Review All Marks'; ?>
                                                     </button>
                                                 </form>
                                                 <?php if ($hasPendingNotifiedChanges): ?>
