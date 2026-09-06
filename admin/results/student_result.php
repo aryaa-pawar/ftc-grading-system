@@ -93,6 +93,8 @@ if ($studentId <= 0) {
                 s.batch_id,
                 s.roll_no,
                 s.student_name,
+                s.student_name_hindi,
+                s.name_prefix,
                 s.designation,
                 s.qualification,
                 s.rmc,
@@ -357,6 +359,7 @@ $performanceGrade = getPerformanceGrade($percentage);
     /* A4 Certificate Sheet Container */
     .certificate-container {
         width: 205mm;
+        min-height: 285mm;
         max-width: 100%;
         margin: 15px auto;
         background: #ffffff;
@@ -365,6 +368,8 @@ $performanceGrade = getPerformanceGrade($percentage);
         border: 2px solid #a82424;
         box-shadow: 0 0 10px rgba(0,0,0,0.15);
         position: relative;
+        display: flex;
+        flex-direction: column;
     }
 
     /* Header styling */
@@ -493,7 +498,8 @@ $performanceGrade = getPerformanceGrade($percentage);
     .signature-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 15px;
+        margin-top: auto;
+        margin-bottom: 5px;
     }
 
     .signature-table td {
@@ -624,27 +630,27 @@ $performanceGrade = getPerformanceGrade($percentage);
     <!-- STUDENT PERSONAL INFORMATION BLOCK -->
     <table class="student-details-table">
         <tr>
-            <td class="label-col">अनुक्रमांक<br>Roll Number</td>
+            <td class="label-col">अनुक्रमांक / Roll Number</td>
             <td class="colon-col">:</td>
             <td><strong><?php echo h($student['roll_no']); ?></strong></td>
         </tr>
         <tr>
-            <td class="label-col">नाम<br>Name</td>
+            <td class="label-col">नाम / Name</td>
             <td class="colon-col">:</td>
             <td><strong><?php echo h($student['student_name']); ?></strong></td>
         </tr>
         <tr>
-            <td class="label-col">पदनाम<br>DESIGNATION</td>
+            <td class="label-col">पदनाम / DESIGNATION</td>
             <td class="colon-col">:</td>
             <td><?php echo h($student['designation']); ?></td>
         </tr>
         <tr>
-            <td class="label-col">योग्यता<br>QUALIFICATION</td>
+            <td class="label-col">योग्यता / QUALIFICATION</td>
             <td class="colon-col">:</td>
             <td><?php echo h($student['qualification']); ?></td>
         </tr>
         <tr>
-            <td class="label-col">कार्यालय<br>OFFICE / STATION</td>
+            <td class="label-col">कार्यालय / OFFICE &amp; STATION</td>
             <td class="colon-col">:</td>
             <td><?php echo h($student['station'] ?? $student['rmc'] ?? 'C. R. & S. Pune'); ?></td>
         </tr>
@@ -654,11 +660,11 @@ $performanceGrade = getPerformanceGrade($percentage);
     <table class="marks-table">
         <thead>
             <tr>
-                <th style="width: 8%;">अ.क्र.<br>Paper No.</th>
-                <th style="width: 52%;">विषय<br>SUBJECT</th>
-                <th style="width: 13%;">अधिकतम अंक<br>MAX. MARKS</th>
-                <th style="width: 13%;">उत्तीर्णांक<br>PASS MARKS</th>
-                <th style="width: 14%;">प्राप्तांक<br>MARKS OBTAINED</th>
+                <th style="width: 8%;">अ.क्र. / Paper No.</th>
+                <th style="width: 52%;">विषय / SUBJECT</th>
+                <th style="width: 13%;">अधिकतम अंक / MAX. MARKS</th>
+                <th style="width: 13%;">उत्तीर्णांक / PASS MARKS</th>
+                <th style="width: 14%;">प्राप्तांक / MARKS OBTAINED</th>
             </tr>
         </thead>
         <tbody>
@@ -666,8 +672,7 @@ $performanceGrade = getPerformanceGrade($percentage);
                 <tr>
                     <td class="col-center"><strong><?php echo h($row['no']); ?></strong></td>
                     <td class="col-left">
-                        <div style="font-size:11px; font-weight:bold; color:#333;"><?php echo h($row['hindi']); ?></div>
-                        <div style="font-size:11px; font-weight:bold; color:#000;"><?php echo h($row['english']); ?></div>
+                        <div style="font-size:11px; font-weight:bold; color:#000;"><?php echo h($row['hindi']); ?> / <?php echo h($row['english']); ?></div>
                     </td>
                     <td class="col-center"><?php echo $row['max']; ?></td>
                     <td class="col-center"><?php echo $row['pass']; ?></td>
@@ -682,7 +687,7 @@ $performanceGrade = getPerformanceGrade($percentage);
             <!-- TOTAL ROW -->
             <tr style="font-weight: bold; background-color: #fafafa;">
                 <td colspan="2" class="col-right" style="padding-right: 15px;">
-                    (कुल) TOTAL
+                    कुल / TOTAL
                 </td>
                 <td class="col-center"><?php echo number_format($maxPossibleMarks, 0); ?></td>
                 <td class="col-center">450</td>
@@ -694,7 +699,7 @@ $performanceGrade = getPerformanceGrade($percentage);
             <!-- PERCENTAGE ROW -->
             <tr style="font-weight: bold; background-color: #fafafa;">
                 <td colspan="2" class="col-right" style="padding-right: 15px;">
-                    (प्रतिशत) PERCENTAGE
+                    प्रतिशत / PERCENTAGE
                 </td>
                 <td class="col-center">100</td>
                 <td class="col-center">50</td>
@@ -707,7 +712,7 @@ $performanceGrade = getPerformanceGrade($percentage);
 
     <!-- REMARKS SECTION -->
     <div class="remarks-block">
-        <strong>REMARKS (टिप्पणी) :</strong>
+        <strong>टिप्पणी / REMARKS :</strong>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <strong><?php echo h($statusRemark); ?></strong>
         <?php if ($performanceGrade !== "" && strtolower($performanceGrade) !== strtolower($statusRemark)): ?>

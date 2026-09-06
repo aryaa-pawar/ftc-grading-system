@@ -73,10 +73,17 @@ function logAudit(?int $userId, string $action): void {
 
 
 
-/**
- * Base URL Helper
- */
 function baseUrl(string $path = ''): string {
-    $baseUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost/ftc_grading', '/');
+    if (!empty($_ENV['APP_URL'])) {
+        $baseUrl = rtrim($_ENV['APP_URL'], '/');
+    } elseif (!empty($_SERVER['HTTP_HOST'])) {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        $segments = array_values(array_filter(explode('/', $scriptDir)));
+        $folder = !empty($segments[0]) ? '/' . $segments[0] : '/ftc-grading-system';
+        $baseUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . $folder;
+    } else {
+        $baseUrl = 'http://localhost/ftc-grading-system';
+    }
     return $baseUrl . '/' . ltrim($path, '/');
 }

@@ -65,6 +65,7 @@ try {
             sfm.faculty_id,
             b.batch_name,
             b.station,
+            b.status AS batch_status,
             s.subject_code,
             s.subject_name,
             s.is_elective
@@ -83,6 +84,10 @@ try {
 
     if (!$assignment) {
         throw new Exception("This subject is not assigned to this faculty for this batch.");
+    }
+
+    if (($assignment['batch_status'] ?? '') === 'Completed') {
+        throw new Exception("This batch has been marked as Completed. Marks entry is no longer available.");
     }
 
     /* Get Mapped Papers for this Subject (Theory / Practical) */

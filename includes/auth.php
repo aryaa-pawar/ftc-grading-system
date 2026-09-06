@@ -25,13 +25,39 @@ function current_user(): ?array
         return null;
     }
 
-    return [
-        'user_id' => (int)$_SESSION['user_id'],
-        'role_id' => (int)($_SESSION['role_id'] ?? 0),
-        'role_name' => $_SESSION['role_name'] ?? $_SESSION['role'] ?? '',
-        'email' => $_SESSION['user_email'] ?? $_SESSION['faculty_email'] ?? '',
-        'full_name' => $_SESSION['user_name'] ?? $_SESSION['faculty_name'] ?? '',
-    ];
+    static $userCache = null;
+    if ($userCache === null) {
+        $userId = (int)$_SESSION['user_id'];
+        try {
+            $stmt = getDbConnection()->prepare('SELECT u.user_id, u.role_id, r.role_name, u.email, p.full_name FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN profiles p ON p.user_id = u.user_id WHERE u.user_id = :uid LIMIT 1');
+            $stmt->execute([':uid' => $userId]);
+            $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($dbUser) {
+                $_SESSION['role_id'] = (int)$dbUser['role_id'];
+                $_SESSION['role_name'] = $dbUser['role_name'];
+                $_SESSION['role'] = $dbUser['role_name'];
+                $userCache = [
+                    'user_id' => (int)$dbUser['user_id'],
+                    'role_id' => (int)$dbUser['role_id'],
+                    'role_name' => $dbUser['role_name'],
+                    'email' => $dbUser['email'],
+                    'full_name' => $dbUser['full_name'] ?? $_SESSION['user_name'] ?? '',
+                ];
+            }
+        } catch (Exception $e) {}
+
+        if ($userCache === null) {
+            $userCache = [
+                'user_id' => (int)$_SESSION['user_id'],
+                'role_id' => (int)($_SESSION['role_id'] ?? 0),
+                'role_name' => $_SESSION['role_name'] ?? $_SESSION['role'] ?? '',
+                'email' => $_SESSION['user_email'] ?? $_SESSION['faculty_email'] ?? '',
+                'full_name' => $_SESSION['user_name'] ?? $_SESSION['faculty_name'] ?? '',
+            ];
+        }
+    }
+
+    return $userCache;
 }
 
 function has_permission(string $permissionName): bool

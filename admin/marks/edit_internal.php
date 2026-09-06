@@ -17,7 +17,7 @@ $pageTitle = "Edit Marks";
 function h($value)
 {
     return htmlspecialchars(
-        (string)($value ?? ''),
+        (string) ($value ?? ''),
         ENT_QUOTES,
         'UTF-8'
     );
@@ -31,14 +31,14 @@ function h($value)
 $studentId = 0;
 
 if (isset($_GET['student_id'])) {
-    $studentId = (int)$_GET['student_id'];
+    $studentId = (int) $_GET['student_id'];
 }
 
 if (
     $studentId <= 0 &&
     isset($_POST['student_id'])
 ) {
-    $studentId = (int)$_POST['student_id'];
+    $studentId = (int) $_POST['student_id'];
 }
 
 
@@ -67,7 +67,7 @@ if (
 ) {
 
     $studentId =
-        (int)($_POST['student_id'] ?? 0);
+        (int) ($_POST['student_id'] ?? 0);
 
     $remark =
         trim(
@@ -104,8 +104,8 @@ if (
             $stmt->execute([
                 ':remark' =>
                     $remark !== ''
-                        ? $remark
-                        : null,
+                    ? $remark
+                    : null,
 
                 ':student_id' =>
                     $studentId
@@ -134,11 +134,11 @@ if (
     $_SERVER['REQUEST_METHOD'] === 'POST' &&
     isset($_POST['save_internal'])
 ) {
-    $studentId = (int)($_POST['student_id'] ?? 0);
-    $subjectId = (int)($_POST['subject_id'] ?? 0);
-    $entryId   = (int)($_POST['entry_id'] ?? 0);
-    $newMarks  = trim($_POST['new_marks'] ?? '');
-    $reason    = trim($_POST['reason'] ?? '');
+    $studentId = (int) ($_POST['student_id'] ?? 0);
+    $subjectId = (int) ($_POST['subject_id'] ?? 0);
+    $entryId = (int) ($_POST['entry_id'] ?? 0);
+    $newMarks = trim($_POST['new_marks'] ?? '');
+    $reason = trim($_POST['reason'] ?? '');
 
     if ($studentId <= 0) {
         $errorMessage = "Invalid student.";
@@ -149,7 +149,7 @@ if (
     } elseif (!is_numeric($newMarks)) {
         $errorMessage = "Internal marks must be numeric.";
     } else {
-        $newMarks = (float)$newMarks;
+        $newMarks = (float) $newMarks;
 
         try {
             $pdo->beginTransaction();
@@ -169,7 +169,7 @@ if (
                 throw new Exception("Student not found.");
             }
 
-            if ((int)($studentEdit['is_locked'] ?? 0) === 1) {
+            if ((int) ($studentEdit['is_locked'] ?? 0) === 1) {
                 throw new Exception("Marks are locked for this batch. No changes are allowed.");
             }
 
@@ -215,7 +215,7 @@ if (
                 throw new Exception("No Internal mark exists for this subject.");
             }
 
-            if ((int)$existingMark['is_absent'] === 1) {
+            if ((int) $existingMark['is_absent'] === 1) {
                 throw new Exception("Absent Internal marks cannot be edited.");
             }
 
@@ -223,8 +223,8 @@ if (
                 throw new Exception("Current Internal mark is empty.");
             }
 
-            $oldMarks = (float)$existingMark['marks_obtained'];
-            $maxMarks = (float)$existingMark['max_marks'];
+            $oldMarks = (float) $existingMark['marks_obtained'];
+            $maxMarks = (float) $existingMark['max_marks'];
 
             if ($maxMarks <= 0) {
                 $maxMarks = 100.00;
@@ -258,7 +258,7 @@ if (
                 $previousGracedSubjects = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
                 foreach ($previousGracedSubjects as $gracedSubId) {
-                    if ((int)$gracedSubId !== $subjectId) {
+                    if ((int) $gracedSubId !== $subjectId) {
                         $subNameStmt = $pdo->prepare("SELECT subject_name FROM subjects WHERE subject_id = ?");
                         $subNameStmt->execute([$gracedSubId]);
                         $otherSubName = $subNameStmt->fetchColumn() ?: "another subject";
@@ -274,7 +274,7 @@ if (
                       AND new_marks > old_marks
                 ");
                 $stmt->execute([':student_id' => $studentId]);
-                $existingGraceSum = (float)$stmt->fetchColumn();
+                $existingGraceSum = (float) $stmt->fetchColumn();
 
                 $totalGraceWithNew = $existingGraceSum + $diff;
                 if ($totalGraceWithNew > 3.00) {
@@ -296,12 +296,21 @@ if (
                 ':entry_id' => $existingMark['entry_id']
             ]);
 
+            // Get logged-in admin user details
+            $currentUser = current_user();
+            $adminDisplayName = !empty($currentUser['full_name'])
+                ? $currentUser['full_name']
+                : (!empty($_SESSION['user_name'])
+                    ? $_SESSION['user_name']
+                    : (!empty($currentUser['email']) ? $currentUser['email'] : ($_SESSION['user_email'] ?? 'Admin')));
+            $adminUserId = !empty($currentUser['user_id']) ? (int)$currentUser['user_id'] : ($_SESSION['user_id'] ?? null);
+
             // CREATE ADMIN AUDIT LOG
             $stmt = $pdo->prepare("
                 INSERT INTO admin_marks_audit
-                (entry_id, student_id, subject_id, old_marks, new_marks, admin_name, reason)
+                (entry_id, student_id, subject_id, old_marks, new_marks, admin_user_id, admin_name, reason)
                 VALUES
-                (:entry_id, :student_id, :subject_id, :old_marks, :new_marks, :admin_name, :reason)
+                (:entry_id, :student_id, :subject_id, :old_marks, :new_marks, :admin_user_id, :admin_name, :reason)
             ");
             $stmt->execute([
                 ':entry_id' => $existingMark['entry_id'],
@@ -309,7 +318,8 @@ if (
                 ':subject_id' => $subjectId,
                 ':old_marks' => $oldMarks,
                 ':new_marks' => $newMarks,
-                ':admin_name' => 'Admin',
+                ':admin_user_id' => $adminUserId,
+                ':admin_name' => $adminDisplayName,
                 ':reason' => $reason !== '' ? $reason : 'Admin mark grace/correction'
             ]);
 
@@ -403,6 +413,8 @@ $gracedSubjectId = null;
 $gracedSubjectName = null;
 $totalGraceSum = 0.00;
 $studentLocked = false;
+$lastEditorName = null;
+$lastEditedAt = null;
 
 if ($student) {
     try {
@@ -417,7 +429,7 @@ if ($student) {
         $stmt->execute([':student_id' => $studentId]);
         $gracedRow = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($gracedRow) {
-            $gracedSubjectId = (int)$gracedRow['subject_id'];
+            $gracedSubjectId = (int) $gracedRow['subject_id'];
             $gracedSubjectName = $gracedRow['subject_name'];
         }
 
@@ -428,9 +440,29 @@ if ($student) {
               AND new_marks > old_marks
         ");
         $stmt->execute([':student_id' => $studentId]);
-        $totalGraceSum = (float)$stmt->fetchColumn();
+        $totalGraceSum = (float) $stmt->fetchColumn();
 
-    } catch (PDOException $e) {}
+        // Fetch last admin who edited/awarded marks for this student
+        $stmtEditor = $pdo->prepare("
+            SELECT audit.admin_user_id, audit.admin_name, audit.changed_at, p.full_name AS profile_name, u.email AS user_email
+            FROM admin_marks_audit audit
+            LEFT JOIN users u ON u.user_id = audit.admin_user_id OR u.email = audit.admin_name
+            LEFT JOIN profiles p ON p.user_id = u.user_id
+            WHERE audit.student_id = :student_id
+            ORDER BY audit.audit_id DESC
+            LIMIT 1
+        ");
+        $stmtEditor->execute([':student_id' => $studentId]);
+        $editorRow = $stmtEditor->fetch(PDO::FETCH_ASSOC);
+        if ($editorRow) {
+            $lastEditorName = !empty($editorRow['profile_name'])
+                ? $editorRow['profile_name']
+                : (!empty($editorRow['admin_name']) ? $editorRow['admin_name'] : 'Admin');
+            $lastEditedAt = $editorRow['changed_at'];
+        }
+
+    } catch (PDOException $e) {
+    }
 }
 
 
@@ -516,10 +548,10 @@ if ($student) {
 
 $group =
     !empty($student['group_code'])
-        ? strtoupper(
-            $student['group_code']
-        )
-        : '—';
+    ? strtoupper(
+        $student['group_code']
+    )
+    : '—';
 
 
 /* =========================================================
@@ -532,504 +564,496 @@ require_once "../../includes/header.php";
 
 
 <style>
-
-/* =========================================================
+    /* =========================================================
    PAGE
 ========================================================= */
 
-.edit-page {
+    .edit-page {
 
-    padding: 30px;
+        padding: 30px;
 
-    background: #f4f6f8;
+        background: #f4f6f8;
 
-    min-height: 100%;
+        min-height: 100%;
 
-}
+    }
 
 
-/* =========================================================
+    /* =========================================================
    HEADER
 ========================================================= */
 
-.page-header {
+    .page-header {
 
-    display: flex;
+        display: flex;
 
-    justify-content: space-between;
+        justify-content: space-between;
 
-    align-items: center;
+        align-items: center;
 
-    margin-bottom: 25px;
+        margin-bottom: 25px;
 
-}
-
-
-.page-header h1 {
-
-    margin: 0;
-
-    color: #1f4e79;
-
-}
+    }
 
 
-.page-header p {
+    .page-header h1 {
 
-    margin-top: 6px;
+        margin: 0;
 
-    color: #666;
+        color: #1f4e79;
 
-}
-
-
-.back-btn {
-
-    background: #777;
-
-    color: white;
-
-    text-decoration: none;
-
-    padding: 10px 16px;
-
-    border-radius: 5px;
-
-}
+    }
 
 
-/* =========================================================
+    .page-header p {
+
+        margin-top: 6px;
+
+        color: #666;
+
+    }
+
+
+    .back-btn {
+
+        background: #777;
+
+        color: white;
+
+        text-decoration: none;
+
+        padding: 10px 16px;
+
+        border-radius: 5px;
+
+    }
+
+
+    /* =========================================================
    MESSAGE
 ========================================================= */
 
-.success {
+    .success {
 
-    background: #e8f5e9;
+        background: #e8f5e9;
 
-    color: #216b36;
+        color: #216b36;
 
-    padding: 14px;
+        padding: 14px;
 
-    border-radius: 6px;
+        border-radius: 6px;
 
-    margin-bottom: 20px;
+        margin-bottom: 20px;
 
-}
-
-
-.error {
-
-    background: #fdecea;
-
-    color: #a12622;
-
-    padding: 14px;
-
-    border-radius: 6px;
-
-    margin-bottom: 20px;
-
-}
+    }
 
 
-/* =========================================================
+    .error {
+
+        background: #fdecea;
+
+        color: #a12622;
+
+        padding: 14px;
+
+        border-radius: 6px;
+
+        margin-bottom: 20px;
+
+    }
+
+
+    /* =========================================================
    CARD
 ========================================================= */
 
-.card {
+    .card {
 
-    background: white;
+        background: white;
 
-    border-radius: 8px;
+        border-radius: 8px;
 
-    margin-bottom: 25px;
+        margin-bottom: 25px;
 
-    box-shadow:
-        0 2px 8px rgba(0,0,0,.08);
+        box-shadow:
+            0 2px 8px rgba(0, 0, 0, .08);
 
-    overflow: hidden;
+        overflow: hidden;
 
-}
-
-
-.card-title {
-
-    background: #1f4e79;
-
-    color: white;
-
-    padding: 15px 20px;
-
-    font-weight: bold;
-
-    font-size: 17px;
-
-}
+    }
 
 
-/* =========================================================
+    .card-title {
+
+        background: #1f4e79;
+
+        color: white;
+
+        padding: 15px 20px;
+
+        font-weight: bold;
+
+        font-size: 17px;
+
+    }
+
+
+    /* =========================================================
    STUDENT INFORMATION
 ========================================================= */
 
-.student-grid {
+    .student-grid {
 
-    display: grid;
+        display: grid;
 
-    grid-template-columns:
-        repeat(3, 1fr);
+        grid-template-columns:
+            repeat(3, 1fr);
 
-}
-
-
-.student-item {
-
-    padding: 16px;
-
-    border-right: 1px solid #eee;
-
-    border-bottom: 1px solid #eee;
-
-}
+    }
 
 
-.student-item label {
+    .student-item {
 
-    display: block;
+        padding: 16px;
 
-    font-size: 11px;
+        border-right: 1px solid #eee;
 
-    color: #777;
+        border-bottom: 1px solid #eee;
 
-    text-transform: uppercase;
-
-    font-weight: bold;
-
-    margin-bottom: 5px;
-
-}
+    }
 
 
-.student-item strong {
+    .student-item label {
 
-    color: #1f4e79;
+        display: block;
 
-}
+        font-size: 11px;
+
+        color: #777;
+
+        text-transform: uppercase;
+
+        font-weight: bold;
+
+        margin-bottom: 5px;
+
+    }
 
 
-/* =========================================================
+    .student-item strong {
+
+        color: #1f4e79;
+
+    }
+
+
+    /* =========================================================
    RULE BOX
 ========================================================= */
 
-.rule-box {
+    .rule-box {
 
-    margin: 20px;
-
-    padding: 15px;
-
-    background: #eef5fa;
-
-    border-left: 4px solid #1f4e79;
-
-    line-height: 1.7;
-
-    font-size: 13px;
-
-}
-
-
-.rule-box.locked {
-
-    background: #f1f1f1;
-
-    border-left-color: #777;
-
-}
-
-
-/* =========================================================
-   TABLE
-========================================================= */
-
-.table-container {
-
-    overflow-x: auto;
-
-}
-
-
-.marks-table {
-
-    width: 100%;
-
-    min-width: 1000px;
-
-    border-collapse: collapse;
-
-}
-
-
-.marks-table th {
-
-    background: #315f87;
-
-    color: white;
-
-    padding: 12px;
-
-    text-align: left;
-
-    font-size: 12px;
-
-}
-
-
-.marks-table td {
-
-    padding: 12px;
-
-    border: 1px solid #ddd;
-
-    font-size: 13px;
-
-}
-
-
-.marks-table tr:nth-child(even) {
-
-    background: #fafafa;
-
-}
-
-
-.locked-row {
-
-    background: #f1f1f1 !important;
-
-    color: #777;
-
-}
-
-
-/* =========================================================
-   INPUT
-========================================================= */
-
-.mark-input {
-
-    width: 80px;
-
-    padding: 8px;
-
-    text-align: center;
-
-    border: 1px solid #aaa;
-
-    border-radius: 5px;
-
-}
-
-
-.reason-input {
-
-    width: 140px;
-
-    padding: 7px;
-
-    border: 1px solid #aaa;
-
-    border-radius: 5px;
-
-    margin-bottom: 5px;
-
-}
-
-
-/* =========================================================
-   BUTTON
-========================================================= */
-
-.save-btn {
-
-    background: #278a4b;
-
-    color: white;
-
-    border: none;
-
-    padding: 8px 14px;
-
-    border-radius: 5px;
-
-    cursor: pointer;
-
-    font-weight: bold;
-
-}
-
-
-/* =========================================================
-   BADGES
-========================================================= */
-
-.locked-badge {
-
-    background: #e4e4e4;
-
-    border: 1px solid #ccc;
-
-    color: #666;
-
-    padding: 6px 10px;
-
-    border-radius: 5px;
-
-    font-size: 11px;
-
-    font-weight: bold;
-
-}
-
-
-.absent-badge {
-
-    background: #fdecea;
-
-    color: #a12622;
-
-    padding: 6px 10px;
-
-    border-radius: 5px;
-
-    font-size: 11px;
-
-    font-weight: bold;
-
-}
-
-
-/* =========================================================
-   REMARK
-========================================================= */
-
-.remark-area {
-
-    padding: 20px;
-
-}
-
-
-.remark-area textarea {
-
-    width: 100%;
-
-    min-height: 120px;
-
-    resize: vertical;
-
-    padding: 12px;
-
-    border: 1px solid #aaa;
-
-    border-radius: 6px;
-
-    font-family: Arial, sans-serif;
-
-}
-
-
-.remark-save {
-
-    margin-top: 10px;
-
-    background: #1f4e79;
-
-    color: white;
-
-    border: none;
-
-    padding: 10px 18px;
-
-    border-radius: 5px;
-
-    cursor: pointer;
-
-}
-
-
-/* =========================================================
-   RESPONSIVE
-========================================================= */
-
-@media(max-width: 900px) {
-
-    .student-grid {
-
-        grid-template-columns:
-            repeat(2, 1fr);
-
-    }
-
-}
-
-
-@media(max-width: 600px) {
-
-    .edit-page {
+        margin: 20px;
 
         padding: 15px;
 
-    }
+        background: #eef5fa;
 
-    .student-grid {
+        border-left: 4px solid #1f4e79;
 
-        grid-template-columns: 1fr;
+        line-height: 1.7;
 
-    }
-
-    .page-header {
-
-        flex-direction: column;
-
-        align-items: flex-start;
-
-        gap: 15px;
+        font-size: 13px;
 
     }
 
-}
 
+    .rule-box.locked {
+
+        background: #f1f1f1;
+
+        border-left-color: #777;
+
+    }
+
+
+    /* =========================================================
+   TABLE
+========================================================= */
+
+    .table-container {
+
+        overflow-x: auto;
+
+    }
+
+
+    .marks-table {
+
+        width: 100%;
+
+        min-width: 1000px;
+
+        border-collapse: collapse;
+
+    }
+
+
+    .marks-table th {
+
+        background: #315f87;
+
+        color: white;
+
+        padding: 12px;
+
+        text-align: left;
+
+        font-size: 12px;
+
+    }
+
+
+    .marks-table td {
+
+        padding: 12px;
+
+        border: 1px solid #ddd;
+
+        font-size: 13px;
+
+    }
+
+
+    .marks-table tr:nth-child(even) {
+
+        background: #fafafa;
+
+    }
+
+
+    .locked-row {
+
+        background: #f1f1f1 !important;
+
+        color: #777;
+
+    }
+
+
+    /* =========================================================
+   INPUT
+========================================================= */
+
+    .mark-input {
+
+        width: 80px;
+
+        padding: 8px;
+
+        text-align: center;
+
+        border: 1px solid #aaa;
+
+        border-radius: 5px;
+
+    }
+
+
+    .reason-input {
+
+        width: 140px;
+
+        padding: 7px;
+
+        border: 1px solid #aaa;
+
+        border-radius: 5px;
+
+        margin-bottom: 5px;
+
+    }
+
+
+    /* =========================================================
+   BUTTON
+========================================================= */
+
+    .save-btn {
+
+        background: #278a4b;
+
+        color: white;
+
+        border: none;
+
+        padding: 8px 14px;
+
+        border-radius: 5px;
+
+        cursor: pointer;
+
+        font-weight: bold;
+
+    }
+
+
+    /* =========================================================
+   BADGES
+========================================================= */
+
+    .locked-badge {
+
+        background: #e4e4e4;
+
+        border: 1px solid #ccc;
+
+        color: #666;
+
+        padding: 6px 10px;
+
+        border-radius: 5px;
+
+        font-size: 11px;
+
+        font-weight: bold;
+
+    }
+
+
+    .absent-badge {
+
+        background: #fdecea;
+
+        color: #a12622;
+
+        padding: 6px 10px;
+
+        border-radius: 5px;
+
+        font-size: 11px;
+
+        font-weight: bold;
+
+    }
+
+
+    /* =========================================================
+   REMARK
+========================================================= */
+
+    .remark-area {
+
+        padding: 20px;
+
+    }
+
+
+    .remark-area textarea {
+
+        width: 100%;
+
+        min-height: 120px;
+
+        resize: vertical;
+
+        padding: 12px;
+
+        border: 1px solid #aaa;
+
+        border-radius: 6px;
+
+        font-family: Arial, sans-serif;
+
+    }
+
+
+    .remark-save {
+
+        margin-top: 10px;
+
+        background: #1f4e79;
+
+        color: white;
+
+        border: none;
+
+        padding: 10px 18px;
+
+        border-radius: 5px;
+
+        cursor: pointer;
+
+    }
+
+
+    /* =========================================================
+   RESPONSIVE
+========================================================= */
+
+    @media(max-width: 900px) {
+
+        .student-grid {
+
+            grid-template-columns:
+                repeat(2, 1fr);
+
+        }
+
+    }
+
+
+    @media(max-width: 600px) {
+
+        .edit-page {
+
+            padding: 15px;
+
+        }
+
+        .student-grid {
+
+            grid-template-columns: 1fr;
+
+        }
+
+        .page-header {
+
+            flex-direction: column;
+
+            align-items: flex-start;
+
+            gap: 15px;
+
+        }
+
+    }
 </style>
 
 
-<div
-    style="
+<div style="
         display:flex;
         flex-direction:column;
         min-height:100vh;
-    "
->
+    ">
 
 
     <?php require_once "../../includes/navbar.php"; ?>
 
 
-    <div
-        style="
+    <div style="
             display:flex;
             flex:1;
-        "
-    >
+        ">
 
 
         <?php require_once "../../includes/sidebar.php"; ?>
 
 
-        <main
-            style="
+        <main style="
                 flex:1;
                 min-width:0;
-            "
-        >
+            ">
 
 
             <div class="edit-page">
@@ -1057,12 +1081,9 @@ require_once "../../includes/header.php";
 
                     <?php if ($student): ?>
 
-                        <a
-                            href="view.php?student_id=<?php
-                                echo $studentId;
-                            ?>"
-                            class="back-btn"
-                        >
+                        <a href="view.php?student_id=<?php
+                        echo $studentId;
+                        ?>" class="back-btn">
                             ← Back to View
                         </a>
 
@@ -1334,22 +1355,38 @@ require_once "../../includes/header.php";
                     <div class="rule-box">
                         <strong>Admin Grace Marks & Editing Rules</strong>
                         <br>
-                        • <strong>Internal Marks Only:</strong> Editing is allowed strictly for <strong>Internal marks</strong>. Mid-Term and Final Exam marks cannot be edited.
+                        • <strong>Internal Marks Only:</strong> Editing is allowed strictly for <strong>Internal
+                            marks</strong>. Mid-Term and Final Exam marks cannot be edited.
                         <br>
-                        • <strong>Maximum 3 Grace Marks:</strong> A student can receive up to <strong>3 grace marks</strong> in total across all edits.
+                        • <strong>Maximum 3 Grace Marks:</strong> A student can receive up to <strong>3 grace marks</strong>
+                        in total across all edits.
                         <br>
-                        • <strong>Single Subject Grace:</strong> Grace marks (mark increases) can only be awarded in <strong>1 subject</strong> per student.
+                        • <strong>Single Subject Grace:</strong> Grace marks (mark increases) can only be awarded in
+                        <strong>1 subject</strong> per student.
                         <br>
-                        • <strong>Assessment Upper Limit:</strong> New marks cannot exceed the assessment maximum limit (defined per subject/paper).
+                        • <strong>Assessment Upper Limit:</strong> New marks cannot exceed the assessment maximum limit
+                        (defined per subject/paper).
                         <br>
-                        <?php if ($totalGraceSum > 0): ?>
+                        <?php if ($totalGraceSum > 0 || !empty($lastEditorName)): ?>
                             <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; color:#1f4e79;">
                                 <strong>Current Status for <?php echo h($student['student_name']); ?>:</strong>
-                                Awarded <strong><?php echo number_format($totalGraceSum, 2); ?> / 3.00</strong> grace marks
-                                <?php if ($gracedSubjectName): ?>
-                                    in <strong><?php echo h($gracedSubjectName); ?></strong>
+                                <?php if ($totalGraceSum > 0): ?>
+                                    Awarded <strong><?php echo number_format($totalGraceSum, 2); ?> / 3.00</strong> grace marks
+                                    <?php if ($gracedSubjectName): ?>
+                                        in <strong><?php echo h($gracedSubjectName); ?></strong>
+                                    <?php endif; ?>
+                                    (Remaining available:
+                                    <strong><?php echo number_format(max(0, 3.00 - $totalGraceSum), 2); ?></strong> marks).
                                 <?php endif; ?>
-                                (Remaining available: <strong><?php echo number_format(max(0, 3.00 - $totalGraceSum), 2); ?></strong> marks).
+                                <?php if (!empty($lastEditorName)): ?>
+                                    <?php if ($totalGraceSum > 0): ?><br><?php endif; ?>
+                                    • <strong>Edited By (Admin):</strong> <span
+                                        style="color:#0f5132; font-weight:bold;"><?php echo h($lastEditorName); ?></span>
+                                    <?php if (!empty($lastEditedAt)): ?>
+                                        <span style="color:#475569; font-size:12px;">(on
+                                            <?php echo date('d.m.Y h:i A', strtotime($lastEditedAt)); ?>)</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -1378,13 +1415,11 @@ require_once "../../includes/header.php";
                             ): ?>
 
 
-                                <div
-                                    style="
+                                <div style="
                                         padding:40px;
                                         text-align:center;
                                         color:#777;
-                                    "
-                                >
+                                    ">
 
                                     No Internal marks
                                     found for this
@@ -1396,9 +1431,7 @@ require_once "../../includes/header.php";
                             <?php else: ?>
 
 
-                                <table
-                                    class="marks-table"
-                                >
+                                <table class="marks-table">
 
 
                                     <thead>
@@ -1445,301 +1478,267 @@ require_once "../../includes/header.php";
                                     <tbody>
 
 
-                                    <?php foreach (
-                                        $marks
-                                        as $mark
-                                    ): ?>
+                                        <?php foreach (
+                                            $marks
+                                            as $mark
+                                        ): ?>
 
 
-                                        <?php
+                                            <?php
 
-                                        $absent =
-                                            (int)$mark[
-                                                'is_absent'
-                                            ] === 1;
+                                            $absent =
+                                                (int) $mark[
+                                                    'is_absent'
+                                                ] === 1;
 
 
-                                        $current =
-                                            $mark[
-                                                'marks_obtained'
-                                            ];
+                                            $current =
+                                                $mark[
+                                                    'marks_obtained'
+                                                ];
 
 
-                                        $maximum = (float)$mark['max_marks'];
+                                            $maximum = (float) $mark['max_marks'];
 
-                                        ?>
+                                            ?>
 
 
-                                        <tr
-                                            class="<?php
-                                                if ($absent) {
-                                                    echo 'locked-row';
-                                                }
-                                            ?>"
-                                        >
+                                            <tr class="<?php
+                                            if ($absent) {
+                                                echo 'locked-row';
+                                            }
+                                            ?>">
 
 
-                                            <!-- PAPER -->
+                                                <!-- PAPER -->
 
-                                            <td>
+                                                <td>
 
-                                                <strong>
+                                                    <strong>
 
-                                                    <?php
-                                                    echo h(
-                                                        $mark[
-                                                            'paper_name'
-                                                        ]
-                                                    );
-                                                    ?>
+                                                        <?php
+                                                        echo h(
+                                                            $mark[
+                                                                'paper_name'
+                                                            ]
+                                                        );
+                                                        ?>
 
-                                                </strong>
-
-                                                <br>
-
-                                                <small>
-
-                                                    <?php
-                                                    echo h(
-                                                        $mark[
-                                                            'paper_code'
-                                                        ]
-                                                    );
-                                                    ?>
-
-                                                </small>
-
-                                            </td>
-
-
-
-                                            <!-- SUBJECT -->
-
-                                            <td>
-
-                                                <strong>
-
-                                                    <?php
-                                                    echo h(
-                                                        $mark[
-                                                            'subject_name'
-                                                        ]
-                                                    );
-                                                    ?>
-
-                                                </strong>
-
-                                                <br>
-
-                                                <small>
-
-                                                    <?php
-                                                    echo h(
-                                                        $mark[
-                                                            'subject_code'
-                                                        ]
-                                                    );
-                                                    ?>
-
-                                                </small>
-
-                                            </td>
-
-
-
-                                            <!-- PROFESSOR -->
-
-                                            <td>
-
-                                                <?php
-                                                echo h(
-                                                    $mark[
-                                                        'faculty_name'
-                                                    ]
-                                                );
-                                                ?>
-
-                                            </td>
-
-
-
-                                            <!-- CURRENT -->
-
-                                            <td>
-
-                                                <strong>
-
-                                                    <?php
-
-                                                    echo $current !== null
-                                                        ? h(
-                                                            number_format(
-                                                                (float)$current,
-                                                                2
-                                                            )
-                                                        )
-                                                        : '—';
-
-                                                    ?>
-
-                                                </strong>
-
-                                            </td>
-
-
-
-                                            <!-- MAX -->
-
-                                            <td>
-
-                                                <?php
-                                                echo h(
-                                                    number_format(
-                                                        $maximum,
-                                                        2
-                                                    )
-                                                );
-                                                ?>
-
-                                            </td>
-
-
-
-                                            <!-- NEW MARK -->
-
-                                            <td>
-
-
-                                                <?php if ($absent): ?>
-
-                                                    —
-
-                                                <?php else: ?>
-
-
-                                                    <form
-                                                        method="POST"
-                                                        style="
-                                                            margin:0;
-                                                        "
-                                                    >
-
-                                                        <input
-                                                            type="hidden"
-                                                            name="student_id"
-                                                            value="<?php
-                                                                echo $studentId;
-                                                            ?>"
-                                                        >
-
-                                                        <input
-                                                            type="hidden"
-                                                            name="subject_id"
-                                                            value="<?php
-                                                                echo (int)$mark[
-                                                                    'subject_id'
-                                                                ];
-                                                            ?>"
-                                                        >
-
-                                                        <input
-                                                            type="hidden"
-                                                            name="entry_id"
-                                                            value="<?php
-                                                                echo (int)$mark[
-                                                                    'entry_id'
-                                                                ];
-                                                            ?>"
-                                                        >
-
-
-                                                        <input
-                                                            type="number"
-                                                            name="new_marks"
-                                                            class="mark-input"
-                                                            min="0"
-                                                            max="<?php
-                                                                echo h(
-                                                                    $maximum
-                                                                );
-                                                            ?>"
-                                                            step="0.01"
-                                                            value="<?php
-                                                                echo h(
-                                                                    $current
-                                                                );
-                                                            ?>"
-                                                            required
-                                                        >
-
-                                                <?php endif; ?>
-
-
-                                            </td>
-
-
-
-                                            <!-- STATUS -->
-
-                                            <td>
-
-                                                <?php if ($absent): ?>
-
-                                                    <span class="absent-badge">Absent</span>
-
-                                                <?php elseif ($gracedSubjectId !== null && (int)$mark['subject_id'] !== $gracedSubjectId): ?>
-
-                                                    <span class="editable-badge" style="background:#e2e8f0; color:#475569;" title="Correction allowed; Grace marks awarded in another subject">Editable</span>
-
-                                                <?php else: ?>
-
-                                                    <span class="editable-badge" style="color:#278a4b; font-weight:bold;">Editable</span>
-
-                                                <?php endif; ?>
-
-                                            </td>
-
-
-                                            <!-- ACTION -->
-
-                                            <td>
-
-                                                <?php if ($absent): ?>
-
-                                                    <span class="absent-badge">Not Editable</span>
-
-                                                <?php else: ?>
-
-                                                    <input
-                                                        type="text"
-                                                        name="reason"
-                                                        class="reason-input"
-                                                        placeholder="Reason"
-                                                    >
+                                                    </strong>
 
                                                     <br>
 
-                                                    <button
-                                                        type="submit"
-                                                        name="save_internal"
-                                                        value="1"
-                                                        class="save-btn"
-                                                        onclick="return confirm('Save this mark edit for this student?');"
-                                                    >
-                                                        Save
-                                                    </button>
+                                                    <small>
 
-                                                    </form>
+                                                        <?php
+                                                        echo h(
+                                                            $mark[
+                                                                'paper_code'
+                                                            ]
+                                                        );
+                                                        ?>
 
-                                                <?php endif; ?>
+                                                    </small>
 
-                                            </td>
+                                                </td>
 
 
-                                        </tr>
+
+                                                <!-- SUBJECT -->
+
+                                                <td>
+
+                                                    <strong>
+
+                                                        <?php
+                                                        echo h(
+                                                            $mark[
+                                                                'subject_name'
+                                                            ]
+                                                        );
+                                                        ?>
+
+                                                    </strong>
+
+                                                    <br>
+
+                                                    <small>
+
+                                                        <?php
+                                                        echo h(
+                                                            $mark[
+                                                                'subject_code'
+                                                            ]
+                                                        );
+                                                        ?>
+
+                                                    </small>
+
+                                                </td>
 
 
-                                    <?php endforeach; ?>
+
+                                                <!-- PROFESSOR -->
+
+                                                <td>
+
+                                                    <?php
+                                                    echo h(
+                                                        $mark[
+                                                            'faculty_name'
+                                                        ]
+                                                    );
+                                                    ?>
+
+                                                </td>
+
+
+
+                                                <!-- CURRENT -->
+
+                                                <td>
+
+                                                    <strong>
+
+                                                        <?php
+
+                                                        echo $current !== null
+                                                            ? h(
+                                                                number_format(
+                                                                    (float) $current,
+                                                                    2
+                                                                )
+                                                            )
+                                                            : '—';
+
+                                                        ?>
+
+                                                    </strong>
+
+                                                </td>
+
+
+
+                                                <!-- MAX -->
+
+                                                <td>
+
+                                                    <?php
+                                                    echo h(
+                                                        number_format(
+                                                            $maximum,
+                                                            2
+                                                        )
+                                                    );
+                                                    ?>
+
+                                                </td>
+
+
+
+                                                <!-- NEW MARK -->
+
+                                                <td>
+
+
+                                                    <?php if ($absent): ?>
+
+                                                        —
+
+                                                    <?php else: ?>
+
+
+                                                        <form method="POST" style="
+                                                            margin:0;
+                                                        ">
+
+                                                            <input type="hidden" name="student_id" value="<?php
+                                                            echo $studentId;
+                                                            ?>">
+
+                                                            <input type="hidden" name="subject_id" value="<?php
+                                                            echo (int) $mark[
+                                                                'subject_id'
+                                                            ];
+                                                            ?>">
+
+                                                            <input type="hidden" name="entry_id" value="<?php
+                                                            echo (int) $mark[
+                                                                'entry_id'
+                                                            ];
+                                                            ?>">
+
+
+                                                            <input type="number" name="new_marks" class="mark-input" min="0" max="<?php
+                                                            echo h(
+                                                                $maximum
+                                                            );
+                                                            ?>" step="0.01" value="<?php
+                                                            echo h(
+                                                                $current
+                                                            );
+                                                            ?>" required>
+
+                                                        <?php endif; ?>
+
+
+                                                </td>
+
+
+
+                                                <!-- STATUS -->
+
+                                                <td>
+
+                                                    <?php if ($absent): ?>
+
+                                                        <span class="absent-badge">Absent</span>
+
+                                                    <?php elseif ($gracedSubjectId !== null && (int) $mark['subject_id'] !== $gracedSubjectId): ?>
+
+                                                        <span class="editable-badge" style="background:#e2e8f0; color:#475569;"
+                                                            title="Correction allowed; Grace marks awarded in another subject">Editable</span>
+
+                                                    <?php else: ?>
+
+                                                        <span class="editable-badge"
+                                                            style="color:#278a4b; font-weight:bold;">Editable</span>
+
+                                                    <?php endif; ?>
+
+                                                </td>
+
+
+                                                <!-- ACTION -->
+
+                                                <td>
+
+                                                    <?php if ($absent): ?>
+
+                                                        <span class="absent-badge">Not Editable</span>
+
+                                                    <?php else: ?>
+
+                                                        <input type="text" name="reason" class="reason-input" placeholder="Reason">
+
+                                                        <br>
+
+                                                        <button type="submit" name="save_internal" value="1" class="save-btn"
+                                                            onclick="return confirm('Save this mark edit for this student?');">
+                                                            Save
+                                                        </button>
+
+                                                        </form>
+
+                                                    <?php endif; ?>
+
+                                                </td>
+
+
+                                            </tr>
+
+
+                                        <?php endforeach; ?>
 
 
                                     </tbody>
@@ -1783,38 +1782,23 @@ require_once "../../includes/header.php";
                             </p>
 
 
-                            <form
-                                method="POST"
-                            >
+                            <form method="POST">
 
-                                <input
-                                    type="hidden"
-                                    name="student_id"
-                                    value="<?php
-                                        echo $studentId;
-                                    ?>"
-                                >
+                                <input type="hidden" name="student_id" value="<?php
+                                echo $studentId;
+                                ?>">
 
 
-                                <textarea
-                                    name="custom_remark"
-                                    maxlength="500"
-                                    placeholder="Enter custom remark..."
-                                ><?php
-                                    echo h(
-                                        $student[
-                                            'custom_remarks'
-                                        ]
-                                    );
+                                <textarea name="custom_remark" maxlength="500" placeholder="Enter custom remark..."><?php
+                                echo h(
+                                    $student[
+                                        'custom_remarks'
+                                    ]
+                                );
                                 ?></textarea>
 
 
-                                <button
-                                    type="submit"
-                                    name="save_remark"
-                                    value="1"
-                                    class="remark-save"
-                                >
+                                <button type="submit" name="save_remark" value="1" class="remark-save">
 
                                     Save Custom Remark
 

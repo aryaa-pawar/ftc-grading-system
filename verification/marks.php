@@ -18,6 +18,15 @@ require_once __DIR__ . "/../config/database.php";
 $pageTitle = "Marks Review";
 $errorMessage = "";
 
+$scrutinyUser = current_user();
+$navbarDisplayName = '';
+if ($scrutinyUser) {
+    $stmtName = getDbConnection()->prepare('SELECT full_name FROM profiles WHERE user_id = :uid LIMIT 1');
+    $stmtName->execute([':uid' => $scrutinyUser['user_id']]);
+    $profName = trim((string)$stmtName->fetchColumn());
+    $navbarDisplayName = !empty($profName) ? $profName : (!empty($scrutinyUser['full_name']) ? $scrutinyUser['full_name'] : ($scrutinyUser['email'] ?? ''));
+}
+
 $batches = [];
 $students = [];
 $paperGroups = [];
@@ -317,8 +326,10 @@ try {
             batch_name,
             commenced_date,
             completed_date,
-            station
+            station,
+            status
         FROM batches
+        WHERE status != 'Completed'
         ORDER BY batch_id ASC
     ");
     $batches = $stmt->fetchAll(PDO::FETCH_ASSOC);

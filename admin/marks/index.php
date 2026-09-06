@@ -6,7 +6,11 @@ ini_set('display_errors', 1);
 require_once __DIR__ . "/../../includes/auth.php";
 require_permission('marks.view');
 require_once __DIR__ . "/../../config/database.php";
-require_once __DIR__ . "/../../vendor/autoload.php";
+if (file_exists(__DIR__ . "/../../vendor/autoload.php")) {
+    require_once __DIR__ . "/../../vendor/autoload.php";
+} elseif (file_exists(__DIR__ . "/../../imdAuth/vendor/autoload.php")) {
+    require_once __DIR__ . "/../../imdAuth/vendor/autoload.php";
+}
 
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -291,7 +295,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
     }
 }
 
-if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !== null && !empty($students) && !empty($paperGroups)) {
+if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !== null) {
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Marks Register');
@@ -426,8 +430,14 @@ if (isset($_GET['download']) && $_GET['download'] === 'excel' && $currentBatch !
     $sheet->getPageMargins()->setTop(0.25)->setRight(0.25)->setBottom(0.25)->setLeft(0.25)->setHeader(0.1)->setFooter(0.1);
     $sheet->getPageSetup()->setHorizontalCentered(true)->setRowsToRepeatAtTopByStartAndEnd(1, 5)->setPrintArea('A1:' . $lastColumn . ($excelRow - 1));
 
+    if (ob_get_length()) {
+        ob_end_clean();
+    }
+    $filename = "marks-register-" . $selectedBatchId . ".xlsx";
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="marks-register-' . $selectedBatchId . '.xlsx"');
+    header('Content-Disposition: attachment; filename="' . $filename . '"; filename*=UTF-8\'\'' . rawurlencode($filename));
+    header('Cache-Control: max-age=0, no-cache, must-revalidate');
+    header('Pragma: public');
     (new Xlsx($spreadsheet))->save('php://output');
     exit;
 }
@@ -776,7 +786,7 @@ require_once __DIR__ . "/../../includes/header.php";
                             <button type="submit" class="btn view-btn">View</button>
 
                             <!-- EXCEL DOWNLOAD -->
-                            <a href="?batch_id=<?php echo $selectedBatchId; ?>&download=excel" class="btn view-btn" style="display:inline-flex;align-items:center;text-decoration:none;">Download Excel</a>
+                            <a href="export_excel.php?batch_id=<?php echo $selectedBatchId; ?>" class="btn view-btn" style="display:inline-flex;align-items:center;text-decoration:none;">Download Excel</a>
 
                         </div>
                     </form>
