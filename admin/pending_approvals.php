@@ -42,25 +42,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmtApprove = $pdo->prepare("UPDATE users SET account_status = 'active', rejection_reason = NULL WHERE user_id = :uid AND account_status = 'pending_approval'");
             $stmtApprove->execute([':uid' => $targetUserId]);
 
-            // Keep the legacy faculty-management record synchronized with approval.
-            $stmtFaculty = $pdo->prepare("SELECT faculty_id FROM faculties WHERE user_id = :uid OR email = :email LIMIT 1");
-            $stmtFaculty->execute([
-                ':uid' => $targetUserId,
-                ':email' => $targetUser['email']
-            ]);
-            $facultyId = $stmtFaculty->fetchColumn();
+            // Synchronize the legacy faculty record only after approval.
+            $stmtFaculty = $pdo->prepare('SELECT * FROM faculties WHERE email = :email LIMIT 1');
+            $stmtFaculty->execute([':email' => $targetUser['email']]);
+            $existingFaculty = $stmtFaculty->fetch(PDO::FETCH_ASSOC);
 
-            if ($facultyId) {
-                $stmtFacultyUpdate = $pdo->prepare("UPDATE faculties SET faculty_name = :name, email = :email, password = :password, contact_number = :phone, user_id = :uid, is_deleted = 0 WHERE faculty_id = :faculty_id");
+            if ($existingFaculty && $existingFaculty['user_id'] === null && (int)$existingFaculty['is_deleted'] === 1) {
+                // Reactivate the preserved row so its faculty_id and mark history remain intact.
+                $stmtFacultyUpdate = $pdo->prepare('UPDATE faculties SET user_id = :new_user_id, faculty_name = :full_name, contact_number = :phone, is_deleted = 0, password = NULL WHERE faculty_id = :existing_faculty_id');
                 $stmtFacultyUpdate->execute([
-                    ':name' => $targetUser['full_name'],
-                    ':email' => $targetUser['email'],
-                    ':password' => $targetUser['password_hash'],
+                    ':new_user_id' => $targetUserId,
+                    ':full_name' => $targetUser['full_name'],
                     ':phone' => $targetUser['phone'] ?? null,
-                    ':uid' => $targetUserId,
-                    ':faculty_id' => $facultyId
+                    ':existing_faculty_id' => $existingFaculty['faculty_id'],
                 ]);
-            } else {
+            } elseif (!$existingFaculty) {
                 $stmtFacultyInsert = $pdo->prepare("INSERT INTO faculties (faculty_name, email, password, contact_number, user_id, is_deleted) VALUES (:name, :email, :password, :phone, :uid, 0)");
                 $stmtFacultyInsert->execute([
                     ':name' => $targetUser['full_name'],
@@ -69,6 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     ':phone' => $targetUser['phone'] ?? null,
                     ':uid' => $targetUserId
                 ]);
+            } else {
+                throw new RuntimeException('An active faculty record already exists for this email. Approval was not completed.');
             }
 
             $pdo->commit();

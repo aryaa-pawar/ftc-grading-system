@@ -317,27 +317,6 @@ $isDeleted = (int) ($teacher["is_deleted"] ?? 0);
                         </a>
 
 
-                        <a
-                            href="delete.php?id=<?php echo $facultyId; ?>"
-                            onclick="
-                                return confirm(
-                                    'Are you sure you want to deactivate this faculty member?'
-                                );
-                            "
-                            style="
-                                display:inline-block;
-                                background:#c0392b;
-                                color:white;
-                                padding:8px 13px;
-                                border-radius:5px;
-                                margin-right:10px;
-                                text-decoration:none;
-                                font-size:13px;
-                            "
-                        >
-                            Delete
-                        </a>
-
                     <?php endif; ?>
 
 

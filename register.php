@@ -68,8 +68,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtProfile = $pdo->prepare('INSERT INTO profiles (user_id, full_name, phone, department) VALUES (:uid, :name, :phone, :dept)');
             $userId = (int)$pdo->lastInsertId();
             $stmtProfile->execute([':uid' => $userId, ':name' => $fullName, ':phone' => $phone, ':dept' => $department]);
-            $stmtFaculty = $pdo->prepare('INSERT INTO faculties (faculty_name, email, password, contact_number, user_id) VALUES (:name, :email, :password, :phone, :uid)');
-            $stmtFaculty->execute([':name' => $fullName, ':email' => $email, ':password' => $passwordHash, ':phone' => $phone, ':uid' => $userId]);
             $pdo->commit();
 
             $success = true;
