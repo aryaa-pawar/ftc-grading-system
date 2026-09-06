@@ -90,16 +90,30 @@ function loadSubjectAssessmentMarks(PDO $pdo, array $case): array
             LEFT JOIN subject_faculty_mapping sfm ON sfm.batch_id = :sfm_batch_id AND sfm.subject_id = fme.subject_id AND sfm.faculty_id = fme.faculty_id
             WHERE fme.student_id = :student_id
               AND fme.subject_id = :subject_id
-              AND COALESCE(fme.paper_id, 0) = COALESCE(:paper_id, 0)
+              AND COALESCE(fme.paper_id, 0) = COALESCE(:paper_id, 0)";
+    if (in_array($case['status'] ?? '', ['awaiting_recheck', 'verified'], true)) {
+        $sql .= "
+              AND EXISTS (
+                  SELECT 1
+                  FROM scrutiny_mark_change_log changed_log
+                  WHERE changed_log.case_id = :case_id
+                    AND changed_log.entry_id = fme.entry_id
+              )";
+    }
+    $sql .= "
             ORDER BY fme.assessment_type_id ASC, fme.entry_id ASC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
+    $params = [
         ':batch_id' => $case['batch_id'],
         ':sfm_batch_id' => $case['batch_id'],
         ':student_id' => $case['student_id'],
         ':subject_id' => $case['subject_id'],
         ':paper_id' => $case['paper_id']
-    ]);
+    ];
+    if (in_array($case['status'] ?? '', ['awaiting_recheck', 'verified'], true)) {
+        $params[':case_id'] = $case['case_id'];
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
 
     $marks = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $mark) {

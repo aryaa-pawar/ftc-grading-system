@@ -69,9 +69,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
             $applicableEntryIds = array_map('intval', $entryStmt->fetchAll(PDO::FETCH_COLUMN));
             if ($applicableEntryIds) {
                 $placeholders = implode(',', array_fill(0, count($applicableEntryIds), '?'));
-                $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = NULL, verification_notified_at = NULL WHERE entry_id IN ($placeholders)")->execute($applicableEntryIds);
+                $resetStmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = NULL, verification_notified_at = NULL WHERE entry_id IN ($placeholders)");
+                $resetStmt->execute($applicableEntryIds);
+                error_log('Scrutiny unlock reset entries: ' . json_encode(['student_id' => $studentId, 'batch_id' => $returnBatchId, 'entry_ids' => $applicableEntryIds, 'rows_affected' => $resetStmt->rowCount()], JSON_UNESCAPED_SLASHES));
             }
-            $pdo->prepare('UPDATE students SET verification_status = NULL WHERE student_id = :student_id AND batch_id = :batch_id')->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
+            $studentResetStmt = $pdo->prepare('UPDATE students SET verification_status = NULL WHERE student_id = :student_id AND batch_id = :batch_id AND verification_status = \'correct\'');
+            $studentResetStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
+            if ($studentResetStmt->rowCount() !== 1) {
+                throw new Exception('The confirmed student state could not be unlocked.');
+            }
             $pdo->commit();
             header('Location: marks.php?batch_id=' . $returnBatchId);
             exit;
@@ -81,6 +87,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
             $errorMessage = 'Unable to unlock student review.';
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Scrutiny unlock error: ' . $e->getMessage());
             $errorMessage = $e->getMessage();
         }
     }
