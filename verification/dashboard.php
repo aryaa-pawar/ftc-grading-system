@@ -32,10 +32,10 @@ if ($scrutinyOfficer) {
 |--------------------------------------------------------------------------
 */
 
-$studentCount = 0;
-$batchCount = 0;
-$facultyCount = 0;
-$marksCount = 0;
+$pendingReviewCount = 0;
+$awaitingAdminCount = 0;
+$awaitingRecheckCount = 0;
+$confirmedCount = 0;
 
 $errorMessage = "";
 
@@ -48,56 +48,14 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    $stmt = $pdo->query("
-        SELECT COUNT(*)
-        FROM students
-        WHERE is_deleted = FALSE
-    ");
-
-    $studentCount = (int) $stmt->fetchColumn();
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | TOTAL BATCHES
-    |--------------------------------------------------------------------------
-    */
-
-    $stmt = $pdo->query("
-        SELECT COUNT(*)
-        FROM batches
-    ");
-
-    $batchCount = (int) $stmt->fetchColumn();
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ACTIVE FACULTY
-    |--------------------------------------------------------------------------
-    */
-
-    $stmt = $pdo->query("
-        SELECT COUNT(*)
-        FROM faculties
-        WHERE is_deleted = FALSE
-    ");
-
-    $facultyCount = (int) $stmt->fetchColumn();
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MARKS RECORDS
-    |--------------------------------------------------------------------------
-    */
-
-    $stmt = $pdo->query("
-        SELECT COUNT(*)
-        FROM faculty_marks_entry
-    ");
-
-    $marksCount = (int) $stmt->fetchColumn();
+    $stmt = $pdo->query("SELECT COUNT(*) FROM students s WHERE (s.is_deleted = 0 OR s.is_deleted IS NULL) AND COALESCE(s.verification_status, '') <> 'correct' AND NOT EXISTS (SELECT 1 FROM scrutiny_cases sc WHERE sc.student_id = s.student_id AND sc.status IN ('awaiting_admin', 'awaiting_recheck'))");
+    $pendingReviewCount = (int)$stmt->fetchColumn();
+    $stmt = $pdo->query("SELECT COUNT(DISTINCT sc.case_id) FROM scrutiny_cases sc WHERE sc.status = 'awaiting_admin'");
+    $awaitingAdminCount = (int)$stmt->fetchColumn();
+    $stmt = $pdo->query("SELECT COUNT(DISTINCT sc.case_id) FROM scrutiny_cases sc WHERE sc.status = 'awaiting_recheck'");
+    $awaitingRecheckCount = (int)$stmt->fetchColumn();
+    $stmt = $pdo->query("SELECT COUNT(*) FROM students WHERE (is_deleted = 0 OR is_deleted IS NULL) AND verification_status = 'correct'");
+    $confirmedCount = (int)$stmt->fetchColumn();
 
 
 } catch (PDOException $e) {
@@ -270,7 +228,7 @@ require_once __DIR__ . '/../includes/header.php';
                         margin-bottom:8px;
                     ">
 
-                        Active Students
+                        Pending Review
 
                     </div>
 
@@ -283,7 +241,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <?php
 
-                        echo $studentCount;
+                        echo $pendingReviewCount;
 
                         ?>
 
@@ -315,7 +273,7 @@ require_once __DIR__ . '/../includes/header.php';
                         margin-bottom:8px;
                     ">
 
-                        Total Batches
+                        Awaiting Admin
 
                     </div>
 
@@ -328,7 +286,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <?php
 
-                        echo $batchCount;
+                        echo $awaitingAdminCount;
 
                         ?>
 
@@ -360,7 +318,7 @@ require_once __DIR__ . '/../includes/header.php';
                         margin-bottom:8px;
                     ">
 
-                        Active Faculty
+                        Awaiting Recheck
 
                     </div>
 
@@ -373,7 +331,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <?php
 
-                        echo $facultyCount;
+                        echo $awaitingRecheckCount;
 
                         ?>
 
@@ -405,7 +363,7 @@ require_once __DIR__ . '/../includes/header.php';
                         margin-bottom:8px;
                     ">
 
-                        Marks Records
+                        Confirmed / Verified
 
                     </div>
 
@@ -418,7 +376,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <?php
 
-                        echo $marksCount;
+                        echo $confirmedCount;
 
                         ?>
 
