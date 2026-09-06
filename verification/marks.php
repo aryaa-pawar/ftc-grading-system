@@ -80,7 +80,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
             $activeCaseStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
             $activeCaseCount = (int)$activeCaseStmt->fetchColumn();
             if ($activeCaseCount > 0) {
-                error_log('Scrutiny confirmation blocked by active cases: ' . json_encode(['student_id' => $studentId, 'batch_id' => $returnBatchId, 'ACTIVE_SCRUTINY_CASE_COUNT' => $activeCaseCount]));
+                $caseLogStmt = $pdo->prepare('SELECT case_id, status, entry_id FROM scrutiny_cases WHERE student_id = :student_id ORDER BY case_id ASC');
+                $caseLogStmt->execute([':student_id' => $studentId]);
+                error_log('Scrutiny confirmation blocked by active cases: ' . json_encode(['student_id' => $studentId, 'batch_id' => $returnBatchId, 'ACTIVE_SCRUTINY_CASE_COUNT' => $activeCaseCount, 'cases' => $caseLogStmt->fetchAll(PDO::FETCH_ASSOC)], JSON_UNESCAPED_SLASHES));
                 throw new Exception('This student has an active scrutiny case awaiting Admin correction or recheck.');
             }
             $stmt = $pdo->prepare('UPDATE students SET verification_status = :status, scrutiny_remarks = :scrutiny_remarks WHERE student_id = :student_id AND batch_id = :batch_id');
@@ -290,6 +292,11 @@ function displayMark($value)
 
 function subjectReviewControls(array $entries, int $studentId, int $batchId, int $paperId, int $subjectId, bool $locked = false): string
 {
+    foreach ($entries as $entry) {
+        if ((int)($entry['active_case_count'] ?? 0) > 0) {
+            return '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;font-weight:bold;">Admin notified / Recheck required</span>';
+        }
+    }
     $latestScrutinyStatus = '';
     foreach ($entries as $entry) {
         if (!empty($entry['scrutiny_status'])) {
@@ -555,6 +562,14 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                         ORDER BY sc.case_id DESC
                                         LIMIT 1
                                  ) AS scrutiny_status,
+                                 (
+                                        SELECT COUNT(*)
+                                        FROM scrutiny_cases active_sc
+                                        WHERE active_sc.student_id = fme.student_id
+                                          AND active_sc.subject_id = fme.subject_id
+                                          AND COALESCE(active_sc.paper_id, 0) = COALESCE(fme.paper_id, 0)
+                                          AND active_sc.status IN ('awaiting_admin', 'awaiting_recheck')
+                                 ) AS active_case_count,
                 COALESCE(
                     (
                         SELECT CEIL(scl.new_marks)
@@ -1152,7 +1167,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                                                 $correctMarkCount++;
                                                             }
                                                         }
-                                                        if (!empty($entry['verification_notified_at']) || ($entry['verification_status'] ?? '') === 'wrong' || in_array(($entry['scrutiny_status'] ?? ''), ['awaiting_admin', 'awaiting_recheck', 'open'], true)) {
+                                                        if (!empty($entry['verification_notified_at']) || ($entry['verification_status'] ?? '') === 'wrong' || (int)($entry['active_case_count'] ?? 0) > 0) {
                                                             $hasPendingNotifiedChanges = true;
                                                         }
                                                     }
