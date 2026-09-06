@@ -73,7 +73,7 @@ CREATE TABLE batches (
 
     station VARCHAR(50) NOT NULL DEFAULT 'DELHI',
 
-    status ENUM('Active','Completed','Locked') NOT NULL DEFAULT 'Active',
+    status ENUM('Active','Completed','Locked','Running','Result Declared') NOT NULL DEFAULT 'Running',
 
     is_locked TINYINT(1) NOT NULL DEFAULT 0,
 
@@ -120,6 +120,16 @@ CREATE TABLE students (
     roll_no VARCHAR(50) NOT NULL UNIQUE,
 
     student_name VARCHAR(150) NOT NULL,
+
+    name_prefix VARCHAR(20) DEFAULT 'Mr.',
+
+    student_name_hindi VARCHAR(255) NULL,
+
+    generated_director_name VARCHAR(255) NULL,
+
+    generated_director_name_hindi VARCHAR(255) NULL,
+
+    certificate_generated_at DATETIME NULL,
 
     designation VARCHAR(100),
 
@@ -480,6 +490,8 @@ CREATE TABLE admin_marks_audit (
     entry_id INT NOT NULL,
 
     student_id INT NOT NULL,
+
+    admin_user_id INT NULL,
 
     subject_id INT NOT NULL,
 

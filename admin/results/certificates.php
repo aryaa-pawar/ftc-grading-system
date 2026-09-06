@@ -32,26 +32,24 @@ $directorNameHindi = "";
 
 $pdo = getDbConnection();
 
-// Save Student Prefixes & Devanagari Names
+// Save per-student certificate prefix and Devanagari name.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_students_hindi'])) {
     enforceCsrf();
     $prefixes = $_POST['name_prefix'] ?? [];
     $hindiNames = $_POST['student_name_hindi'] ?? [];
     try {
-        $stmtUpdate = $pdo->prepare("
-            UPDATE students
-            SET name_prefix = :pfx, student_name_hindi = :hin
-            WHERE student_id = :sid
-        ");
+        $stmtUpdate = $pdo->prepare('UPDATE students SET name_prefix = :pfx, student_name_hindi = :hin WHERE student_id = :sid');
         foreach ($prefixes as $sid => $pfx) {
             $sid = (int)$sid;
-            $pVal = trim($pfx);
-            $hVal = trim($hindiNames[$sid] ?? '');
-            $stmtUpdate->execute([':pfx' => $pVal, ':hin' => $hVal, ':sid' => $sid]);
+            $stmtUpdate->execute([
+                ':pfx' => trim($pfx) !== '' ? trim($pfx) : 'Mr.',
+                ':hin' => trim($hindiNames[$sid] ?? '') ?: null,
+                ':sid' => $sid,
+            ]);
         }
-        $successMessage = "Student Prefixes and Devanagari (Hindi) names saved successfully!";
+        $successMessage = 'Student prefixes and Devanagari names saved successfully.';
     } catch (PDOException $e) {
-        $errorMessage = "Unable to save student Devanagari details: " . $e->getMessage();
+        $errorMessage = 'Unable to save student Devanagari details: ' . $e->getMessage();
     }
 }
 
@@ -343,15 +341,11 @@ require_once __DIR__ . "/../../includes/header.php";
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                 <div>
                     <h3 style="margin:0; color:#1f4e79; font-size:18px;">Student Certificates for [Batch <?= h($currentBatch['batch_number'] ?? $currentBatch['batch_id']) ?>] <?= h($currentBatch['batch_name']) ?></h3>
-                    <p style="margin:2px 0 0 0; color:#666; font-size:13px;">Select prefix (Mr./Ms./Mrs.) and verify Devanagari (Hindi) names before generating certificates.</p>
+                    <p style="margin:2px 0 0 0; color:#666; font-size:13px;">Select a prefix and verify each Devanagari name before generating certificates.</p>
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <button type="button" id="btn_convert_all" onclick="autoConvertAllStudentsToHindi()" class="btn-action" style="background:#0284c7;">
-                        ⚡ Auto-Convert All Names to Devanagari
-                    </button>
-                    <button type="submit" name="save_students_hindi" class="btn-action btn-success">
-                        💾 Save Student Prefixes & Hindi Names
-                    </button>
+                    <button type="button" id="btn_convert_all" onclick="autoConvertAllStudentsToHindi()" class="btn-action" style="background:#0284c7;">⚡ Auto-Convert All Names to Devanagari</button>
+                    <button type="submit" name="save_students_hindi" class="btn-action btn-success">💾 Save Student Prefixes &amp; Hindi Names</button>
                 </div>
             </div>
 
@@ -394,42 +388,17 @@ require_once __DIR__ . "/../../includes/header.php";
                                 <tr>
                                     <td><?= $sn++ ?></td>
                                     <td><strong><?= h($student['roll_no']) ?></strong></td>
-                                    <td>
-                                        <select name="name_prefix[<?= $sid ?>]" class="select-box" style="min-width:85px; height:32px; padding:0 4px; font-size:12px;">
-                                            <option value="Mr." <?= $pfxVal === 'Mr.' ? 'selected' : '' ?>>Mr. / श्री</option>
-                                            <option value="Ms." <?= $pfxVal === 'Ms.' ? 'selected' : '' ?>>Ms. / कुमारी</option>
-                                            <option value="Mrs." <?= $pfxVal === 'Mrs.' ? 'selected' : '' ?>>Mrs. / श्रीमती</option>
-                                            <option value="Dr." <?= $pfxVal === 'Dr.' ? 'selected' : '' ?>>Dr. / डॉ.</option>
-                                            <option value="Shri" <?= $pfxVal === 'Shri' ? 'selected' : '' ?>>Shri / श्री</option>
-                                            <option value="Smt." <?= $pfxVal === 'Smt.' ? 'selected' : '' ?>>Smt. / श्रीमती</option>
-                                        </select>
-                                    </td>
+                                    <td><select name="name_prefix[<?= $sid ?>]" class="select-box" style="min-width:85px; height:32px; padding:0 4px; font-size:12px;">
+                                        <?php foreach (['Mr.' => 'Mr. / श्री', 'Ms.' => 'Ms. / कुमारी', 'Mrs.' => 'Mrs. / श्रीमती', 'Dr.' => 'Dr. / डॉ.', 'Shri' => 'Shri / श्री', 'Smt.' => 'Smt. / श्रीमती'] as $prefix => $label): ?>
+                                            <option value="<?= h($prefix) ?>" <?= $pfxVal === $prefix ? 'selected' : '' ?>><?= h($label) ?></option>
+                                        <?php endforeach; ?>
+                                    </select></td>
                                     <td><strong><?= h($student['student_name']) ?></strong></td>
-                                    <td>
-                                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                                            <input type="text"
-                                                   id="st_hindi_<?= $sid ?>"
-                                                   name="student_name_hindi[<?= $sid ?>]"
-                                                   value="<?= h($student['student_name_hindi'] ?? '') ?>"
-                                                   placeholder="नाम हिंदी में"
-                                                   class="input-box st-hindi-input"
-                                                   data-english="<?= h($student['student_name']) ?>"
-                                                   style="height:32px; min-width:140px; font-size:12px;">
-                                            <button type="button"
-                                                    onclick="convertSingleStudentHindi(<?= $sid ?>)"
-                                                    class="btn-action"
-                                                    style="height:32px; padding:0 8px; font-size:11px; background:#1f4e79;"
-                                                    title="Convert to Devanagari">
-                                                Convert
-                                            </button>
-                                            <select id="st_sug_<?= $sid ?>"
-                                                    onchange="document.getElementById('st_hindi_<?= $sid ?>').value = this.value"
-                                                    class="select-box"
-                                                    style="display:none; height:32px; min-width:110px; font-size:11px; padding:0 4px;">
-                                                <option value="">Choose</option>
-                                            </select>
-                                        </div>
-                                    </td>
+                                    <td><div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                        <input type="text" id="st_hindi_<?= $sid ?>" name="student_name_hindi[<?= $sid ?>]" value="<?= h($student['student_name_hindi'] ?? '') ?>" placeholder="नाम हिंदी में" class="input-box st-hindi-input" data-english="<?= h($student['student_name']) ?>" style="height:32px; min-width:140px; font-size:12px;">
+                                        <button type="button" onclick="convertSingleStudentHindi(<?= $sid ?>)" class="btn-action" style="height:32px; padding:0 8px; font-size:11px; background:#1f4e79;">Convert</button>
+                                        <select id="st_sug_<?= $sid ?>" onchange="document.getElementById('st_hindi_<?= $sid ?>').value = this.value" class="select-box" style="display:none; height:32px; min-width:110px; font-size:11px; padding:0 4px;"><option value="">Choose</option></select>
+                                    </div></td>
                                     <td>
                                         <?php if ($isGen): ?>
                                             <strong style="color:#1f4e79;"><?= h($genDir) ?></strong>
