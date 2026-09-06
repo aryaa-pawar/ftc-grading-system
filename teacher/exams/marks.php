@@ -65,6 +65,7 @@ try {
         INNER JOIN batches b ON sfm.batch_id = b.batch_id
         INNER JOIN subjects s ON sfm.subject_id = s.subject_id
         WHERE sfm.faculty_id = ?
+          AND b.status != 'Completed'
         " . ($selectedBatchId > 0 ? "AND sfm.batch_id = ?" : "") . "
         ORDER BY s.subject_name ASC, b.batch_name ASC
     ");

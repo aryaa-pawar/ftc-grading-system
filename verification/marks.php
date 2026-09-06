@@ -326,8 +326,10 @@ try {
             batch_name,
             commenced_date,
             completed_date,
-            station
+            station,
+            status
         FROM batches
+        WHERE status != 'Completed'
         ORDER BY batch_id ASC
     ");
     $batches = $stmt->fetchAll(PDO::FETCH_ASSOC);

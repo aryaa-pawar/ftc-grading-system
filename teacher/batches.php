@@ -102,6 +102,7 @@ try {
                 ON sfm.batch_id = b.batch_id
 
             WHERE sfm.faculty_id = ?
+                AND b.status != 'Completed'
 
             GROUP BY
 

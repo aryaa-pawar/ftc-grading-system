@@ -139,7 +139,8 @@ try {
                 b.batch_name,
                 b.commenced_date,
                 b.completed_date,
-                b.station
+                b.station,
+                b.status
 
             FROM batches b
 
@@ -149,6 +150,7 @@ try {
             WHERE
                 b.batch_id = ?
                 AND sfm.faculty_id = ?
+                AND b.status != 'Completed'
 
             LIMIT 1
         ");
@@ -168,8 +170,20 @@ try {
 
             $accessDenied = true;
 
-            $errorMessage =
-                "This batch is not assigned to you.";
+            // Check if this batch exists but is simply Completed
+            $chkStmt = $pdo->prepare("
+                SELECT status FROM batches WHERE batch_id = ? LIMIT 1
+            ");
+            $chkStmt->execute([$batchId]);
+            $batchStatus = $chkStmt->fetchColumn();
+
+            if ($batchStatus === 'Completed') {
+                $errorMessage =
+                    "This batch has been marked as Completed. Marks entry is no longer available for completed batches.";
+            } else {
+                $errorMessage =
+                    "This batch is not assigned to you.";
+            }
 
         }
 
