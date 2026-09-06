@@ -8,6 +8,13 @@ $batches = [];
 $stations = [];
 $errorMessage = "";
 
+$statusCounts = [
+    'Running' => 0,
+    'Completed' => 0,
+    'Result Declared' => 0,
+    'Locked' => 0,
+];
+
 $selectedStation = isset($_GET["station"])
     ? trim($_GET["station"])
     : "";
@@ -85,6 +92,13 @@ try {
 
     $batches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    foreach ($batches as $batch) {
+        $batchStatus = (string)($batch['status'] ?? '');
+        if (isset($statusCounts[$batchStatus])) {
+            $statusCounts[$batchStatus]++;
+        }
+    }
+
 
 } catch (PDOException $e) {
 
@@ -122,6 +136,39 @@ require_once "../../includes/header.php";
             padding:30px;
             background:#f4f6f8;
         ">
+
+            <style>
+                .batch-summary-grid { display:grid; grid-template-columns:repeat(5, minmax(140px, 1fr)); gap:14px; margin:0 0 22px; }
+                .batch-summary-card { background:#fff; border:1px solid #e1e8ef; border-radius:10px; padding:16px 18px; box-shadow:0 2px 8px rgba(31,78,121,.07); }
+                .batch-summary-label { color:#64748b; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+                .batch-summary-value { color:#1f4e79; font-size:27px; font-weight:800; line-height:1.1; margin-top:8px; }
+                .batch-table-wrap { background:#fff; padding:8px; border:1px solid #e1e8ef; border-radius:10px; box-shadow:0 2px 8px rgba(31,78,121,.07); overflow-x:auto; }
+                .batch-table { width:100%; min-width:980px; border-collapse:separate; border-spacing:0; }
+                .batch-table th { padding:14px 16px; background:#1f4e79; color:#fff; text-align:left; font-size:12px; letter-spacing:.02em; white-space:nowrap; }
+                .batch-table th:first-child { border-radius:7px 0 0 0; }
+                .batch-table th:last-child { border-radius:0 7px 0 0; }
+                .batch-table td { padding:14px 16px; border-bottom:1px solid #edf1f5; color:#334155; vertical-align:middle; }
+                .batch-table tbody tr:hover { background:#f8fbfe; }
+                .batch-table .serial-cell { width:56px; color:#64748b; text-align:center; }
+                .batch-table .number-cell { width:135px; font-weight:700; color:#1f4e79; }
+                .batch-table .date-cell { width:145px; white-space:nowrap; }
+                .batch-table .station-cell { width:145px; }
+                .batch-table .status-cell { width:155px; }
+                .batch-table .actions-cell { width:205px; white-space:nowrap; }
+                .batch-status-badge { display:inline-flex; align-items:center; justify-content:center; min-width:108px; padding:6px 11px; border-radius:999px; font-size:12px; font-weight:800; line-height:1; white-space:nowrap; }
+                .batch-status-active { color:#166534; background:#dcfce7; border:1px solid #bbf7d0; }
+                .batch-status-running { color:#075985; background:#e0f2fe; border:1px solid #bae6fd; }
+                .batch-status-completed { color:#475569; background:#e2e8f0; border:1px solid #cbd5e1; }
+                .batch-status-result { color:#6b21a8; background:#f3e8ff; border:1px solid #e9d5ff; }
+                .batch-status-locked { color:#991b1b; background:#fee2e2; border:1px solid #fecaca; }
+                .batch-status-unknown { color:#475569; background:#f1f5f9; border:1px solid #e2e8f0; }
+                .batch-action { display:inline-block; padding:7px 10px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:700; margin-right:5px; }
+                .batch-action-view { color:#1f4e79; background:#e0f2fe; }
+                .batch-action-edit { color:#166534; background:#dcfce7; }
+                .batch-action-delete { color:#991b1b; background:#fee2e2; }
+                @media (max-width:900px) { .batch-summary-grid { grid-template-columns:repeat(2, minmax(140px, 1fr)); } }
+                @media (max-width:560px) { .batch-summary-grid { grid-template-columns:1fr; } }
+            </style>
 
 
             <!-- PAGE HEADER -->
@@ -179,6 +226,21 @@ require_once "../../includes/header.php";
 
                 </a>
 
+            </div>
+
+            <div class="batch-summary-grid" aria-label="Batch summary">
+                <?php foreach ([
+                    ['label' => 'Total Batches', 'value' => count($batches)],
+                    ['label' => 'Running', 'value' => $statusCounts['Running']],
+                    ['label' => 'Completed', 'value' => $statusCounts['Completed']],
+                    ['label' => 'Result Declared', 'value' => $statusCounts['Result Declared']],
+                    ['label' => 'Locked', 'value' => $statusCounts['Locked']],
+                ] as $summary): ?>
+                    <div class="batch-summary-card">
+                        <div class="batch-summary-label"><?php echo htmlspecialchars($summary['label'], ENT_QUOTES, 'UTF-8'); ?></div>
+                        <div class="batch-summary-value"><?php echo (int)$summary['value']; ?></div>
+                    </div>
+                <?php endforeach; ?>
             </div>
 
 
@@ -353,20 +415,10 @@ require_once "../../includes/header.php";
                  BATCH TABLE
             ================================================== -->
 
-            <div style="
-                background:#ffffff;
-                padding:20px;
-                border-radius:8px;
-                box-shadow:0 2px 8px rgba(0,0,0,0.08);
-                overflow-x:auto;
-            ">
+            <div class="batch-table-wrap">
 
 
-                <table style="
-                    width:100%;
-                    border-collapse:collapse;
-                    min-width:850px;
-                ">
+                <table class="batch-table">
 
 
                     <thead>
@@ -374,84 +426,56 @@ require_once "../../includes/header.php";
                         <tr>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
 
                                 S.No.
 
                             </th>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
 
                                 Batch Number
 
                             </th>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
 
                                 Batch Name
 
                             </th>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
 
                                 Commenced Date
 
                             </th>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
 
                                 Completed Date
 
                             </th>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
+
+                                Station
+
+                            </th>
+
+
+                            <th>
 
                                 Status
 
                             </th>
 
 
-                            <th style="
-                                padding:12px;
-                                background:#1f4e79;
-                                color:white;
-                                text-align:left;
-                            ">
+                            <th>
 
                                 Actions
 
@@ -478,10 +502,7 @@ require_once "../../includes/header.php";
 
                                 <!-- SERIAL NUMBER -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                ">
+                                <td class="serial-cell">
 
                                     <?php
 
@@ -494,10 +515,7 @@ require_once "../../includes/header.php";
 
                                 <!-- BATCH NUMBER -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                ">
+                                <td class="number-cell">
 
                                     <?php echo htmlspecialchars($batch["batch_number"] ?? ""); ?>
 
@@ -507,11 +525,7 @@ require_once "../../includes/header.php";
 
                                 <!-- BATCH NAME -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                    font-weight:bold;
-                                ">
+                                <td>
 
                                     <?php
 
@@ -527,10 +541,7 @@ require_once "../../includes/header.php";
 
                                 <!-- COMMENCED DATE -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                ">
+                                <td class="date-cell">
 
                                     <?php
 
@@ -546,10 +557,7 @@ require_once "../../includes/header.php";
 
                                 <!-- COMPLETED DATE -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                ">
+                                <td class="date-cell">
 
                                     <?php
 
@@ -565,10 +573,7 @@ require_once "../../includes/header.php";
 
                                 <!-- STATION -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                ">
+                                <td class="station-cell">
 
                                     <?php
 
@@ -583,26 +588,30 @@ require_once "../../includes/header.php";
 
 
                                 <!-- STATUS -->
-                                <td style="padding:12px;border-bottom:1px solid #eeeeee;">
-                                    <?php echo htmlspecialchars($batch['status'] ?? (($batch['is_locked'] ?? 0) ? 'Completed' : 'Running')); ?>
+                                <?php
+                                    $displayStatus = (string)($batch['status'] ?? '');
+                                    $statusClass = [
+                                        'Active' => 'batch-status-active',
+                                        'Running' => 'batch-status-running',
+                                        'Completed' => 'batch-status-completed',
+                                        'Result Declared' => 'batch-status-result',
+                                        'Locked' => 'batch-status-locked',
+                                    ][$displayStatus] ?? 'batch-status-unknown';
+                                ?>
+                                <td class="status-cell">
+                                    <span class="batch-status-badge <?php echo $statusClass; ?>">
+                                        <?php echo $displayStatus !== '' ? htmlspecialchars($displayStatus, ENT_QUOTES, 'UTF-8') : '—'; ?>
+                                    </span>
                                 </td>
 
                                 <!-- ACTIONS -->
 
-                                <td style="
-                                    padding:12px;
-                                    border-bottom:1px solid #eeeeee;
-                                    white-space:nowrap;
-                                ">
+                                <td class="actions-cell">
 
 
                                     <a
                                         href="view.php?id=<?php echo (int)$batch["batch_id"]; ?>"
-                                        style="
-                                            color:#1f4e79;
-                                            text-decoration:none;
-                                            margin-right:15px;
-                                        "
+                                        class="batch-action batch-action-view"
                                     >
 
                                         View
@@ -612,10 +621,7 @@ require_once "../../includes/header.php";
 
                                     <a
                                         href="edit.php?id=<?php echo (int)$batch["batch_id"]; ?>"
-                                        style="
-                                            color:#278a4b;
-                                            text-decoration:none;
-                                        "
+                                        class="batch-action batch-action-edit"
                                     >
 
                                         Edit
@@ -624,11 +630,7 @@ require_once "../../includes/header.php";
 
                                     <a
                                         href="delete.php?id=<?php echo (int)$batch["batch_id"]; ?>"
-                                        style="
-                                            color:#c0392b;
-                                            text-decoration:none;
-                                            margin-left:15px;
-                                        "
+                                        class="batch-action batch-action-delete"
                                     >
 
                                         Delete
@@ -652,7 +654,7 @@ require_once "../../includes/header.php";
 
 
                             <td
-                                colspan="7"
+                                colspan="8"
                                 style="
                                     padding:35px;
                                     text-align:center;
