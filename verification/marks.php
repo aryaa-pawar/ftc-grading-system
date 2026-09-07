@@ -240,7 +240,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 $pdo->commit();
             } elseif ($action === 'set_entry_status') {
                 $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
-                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = ?, verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders) AND verification_notified_at IS NULL");
+                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = ?, verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders)");
                 $stmt->execute(array_merge([$status], $subjectEntryIds));
             } else {
                 $pdo->beginTransaction();
@@ -248,7 +248,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 $activeCaseStmt->execute([':student_id' => $studentId, ':subject_id' => $subjectId, ':paper_id' => $paperId]);
                 if ((int)$activeCaseStmt->fetchColumn() > 0) throw new Exception('This subject already has an active scrutiny case.');
                 $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
-                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_notified_at = NOW() WHERE entry_id IN ($entryPlaceholders) AND verification_status = ? AND verification_notified_at IS NULL");
+                $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_notified_at = NOW() WHERE entry_id IN ($entryPlaceholders) AND verification_status = ?");
                 $stmt->execute(array_merge($subjectEntryIds, [$status]));
                 if ($stmt->rowCount() === 0) {
                     throw new Exception('Select Correct or Wrong before notifying Admin.');
@@ -400,7 +400,6 @@ function summarizeSubjectReviewState(array $entries): array
 
     $correctCount = 0;
     $wrongCount = 0;
-    $notifiedCount = 0;
     foreach ($eligible as $entry) {
         $status = (string)($entry['verification_status'] ?? '');
         if ($status === 'correct') {
@@ -409,24 +408,17 @@ function summarizeSubjectReviewState(array $entries): array
         if ($status === 'wrong') {
             $wrongCount++;
         }
-        if (!empty($entry['verification_notified_at'])) {
-            $notifiedCount++;
-        }
     }
 
     if ($wrongCount > 0) {
-        return ['state' => 'wrong', 'eligible_count' => count($eligible), 'wrong_count' => $wrongCount, 'correct_count' => $correctCount, 'notified_count' => $notifiedCount];
+        return ['state' => 'wrong', 'eligible_count' => count($eligible), 'wrong_count' => $wrongCount, 'correct_count' => $correctCount];
     }
 
     if ($correctCount === count($eligible)) {
-        return ['state' => 'correct', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount, 'notified_count' => $notifiedCount];
+        return ['state' => 'correct', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount];
     }
 
-    if ($notifiedCount > 0) {
-        return ['state' => 'awaiting_admin', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount, 'notified_count' => $notifiedCount];
-    }
-
-    return ['state' => 'unreviewed', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount, 'notified_count' => 0];
+    return ['state' => 'unreviewed', 'eligible_count' => count($eligible), 'wrong_count' => 0, 'correct_count' => $correctCount];
 }
 
 function subjectReviewControls(array $entries, int $studentId, int $batchId, int $paperId, int $subjectId, bool $locked = false): string
@@ -1316,7 +1308,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                                                 $correctMarkCount++;
                                                             }
                                                         }
-                                                        if (!empty($entry['verification_notified_at']) || ($entry['verification_status'] ?? '') === 'wrong' || (int)($entry['active_case_count'] ?? 0) > 0) {
+                                                        if (($entry['verification_status'] ?? '') === 'wrong' || (int)($entry['active_case_count'] ?? 0) > 0) {
                                                             $hasPendingNotifiedChanges = true;
                                                         }
                                                         if ((int)($entry['active_case_count'] ?? 0) > 0) {
