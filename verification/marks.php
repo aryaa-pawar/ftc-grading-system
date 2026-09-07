@@ -58,12 +58,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
             if ($studentStmt->fetchColumn() !== 'correct') {
                 throw new Exception('This student is not currently confirmed.');
             }
-            $activeStmt = $pdo->prepare("SELECT case_id, status, entry_id FROM scrutiny_cases WHERE student_id = :student_id AND status IN ('awaiting_admin', 'awaiting_recheck') ORDER BY case_id ASC");
-            $activeStmt->execute([':student_id' => $studentId]);
-            $activeCases = $activeStmt->fetchAll(PDO::FETCH_ASSOC);
-            if ($activeCases) {
-                throw new Exception('Unlock is unavailable while an active scrutiny case is pending.');
-            }
+            $pdo->prepare("UPDATE scrutiny_cases SET status = 'verified' WHERE student_id = :student_id AND status IN ('awaiting_admin', 'awaiting_recheck')")->execute([':student_id' => $studentId]);
+            $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, verified_at = COALESCE(verified_at, NOW()) WHERE student_id = :student_id AND status = 'awaiting_recheck'")->execute([':student_id' => $studentId]);
             $entryStmt = $pdo->prepare("SELECT DISTINCT fme.entry_id FROM faculty_marks_entry fme INNER JOIN students st ON st.student_id = fme.student_id INNER JOIN paper_subject_mapping psm ON psm.batch_id = st.batch_id AND psm.paper_id = fme.paper_id AND psm.subject_id = fme.subject_id INNER JOIN subjects sub ON sub.subject_id = fme.subject_id LEFT JOIN elective_subject_mapping esm ON esm.subject_id = fme.subject_id AND LOWER(TRIM(esm.group_code)) = LOWER(TRIM(st.group_code)) WHERE fme.student_id = :student_id AND st.batch_id = :batch_id AND fme.assessment_type_id IN (1, 2, 3) AND (fme.marks_obtained IS NOT NULL OR fme.is_absent = 1) AND (COALESCE(sub.is_elective, 0) = 0 OR esm.subject_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM elective_subject_mapping esm_any WHERE esm_any.subject_id = fme.subject_id))");
             $entryStmt->execute([':student_id' => $studentId, ':batch_id' => $returnBatchId]);
             $applicableEntryIds = array_map('intval', $entryStmt->fetchAll(PDO::FETCH_COLUMN));
@@ -1437,13 +1433,13 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                         <td class="no-print" style="white-space:nowrap; text-align:center; padding:6px;">
                                             <?php if ($isStudentVerified): ?>
                                                 <span class="student-confirmed" style="display:inline-block; padding:5px 12px; background:#e8f4ec; color:#087f3e; font-size:12px; font-weight:bold; border-radius:4px;">Confirmed</span>
-                                                <?php if (!$hasActiveScrutinyCase): ?><form method="POST" style="margin-top:6px;" onsubmit="return confirm('Unlock this student for scrutiny review again?');">
+                                                <form method="POST" style="margin-top:6px;" onsubmit="return confirm('Unlock this student for scrutiny review again?');">
                                                     <?php echo csrfField(); ?>
                                                     <input type="hidden" name="student_id" value="<?php echo $studentId; ?>">
                                                     <input type="hidden" name="batch_id" value="<?php echo $selectedBatchId; ?>">
                                                     <input type="hidden" name="verification_action" value="unlock_review">
                                                     <button type="submit" style="padding:4px 9px; font-size:11px; border:1px solid #b02a37; border-radius:4px; background:#fff; color:#b02a37; cursor:pointer;">Unlock Review</button>
-                                                </form><?php endif; ?>
+                                                </form>
                                             <?php else: ?>
                                                 <form method="POST" class="no-print confirm-student-form" style="margin:0;">
                                                     <?php echo csrfField(); ?>
