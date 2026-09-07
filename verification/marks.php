@@ -322,7 +322,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 ':entry_id' => $subjectEntryIds[0],
                 ':message' => 'Verification re-check found the subject still incorrect. Admin correction is required.'
             ]);
-            $stmt = $pdo->prepare("UPDATE scrutiny_cases SET status = 'awaiting_admin', entry_id = :entry_id, flagged_by_user_id = :user_id, reason = :reason WHERE case_id = (SELECT case_id FROM (SELECT case_id FROM scrutiny_cases WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = :paper_id AND status = 'verified' ORDER BY case_id DESC LIMIT 1) AS latest_case)");
+            $stmt = $pdo->prepare("UPDATE scrutiny_cases SET status = 'awaiting_admin', entry_id = :entry_id, flagged_by_user_id = :user_id, reason = :reason WHERE case_id = (SELECT case_id FROM (SELECT case_id FROM scrutiny_cases WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = :paper_id AND status IN ('verified', 'awaiting_recheck') ORDER BY case_id DESC LIMIT 1) AS latest_case)");
             $stmt->execute([
                 ':entry_id' => $subjectEntryIds[0],
                 ':user_id' => (int)($currentUser['user_id'] ?? 0),
@@ -437,7 +437,26 @@ function subjectReviewControls(array $entries, int $studentId, int $batchId, int
 
     foreach ($entries as $entry) {
         if ((int)($entry['active_case_count'] ?? 0) > 0) {
-            return '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;font-weight:bold;">Admin notified / Recheck required</span>';
+            if (($entry['active_case_status'] ?? '') !== 'awaiting_recheck') {
+                return '<span class="no-print verification-status" style="display:block;color:#b02a37;font-size:10px;font-weight:bold;">Admin notified / Recheck required</span>';
+            }
+
+            $entryId = (int)($entry['entry_id'] ?? 0);
+            return '<form method="POST" class="no-print subject-review-form" style="display:flex;gap:2px;justify-content:center;margin-top:2px;">'
+                . csrfField()
+                . '<input type="hidden" name="batch_id" value="' . $batchId . '">'
+                . '<input type="hidden" name="student_id" value="' . $studentId . '">'
+                . '<input type="hidden" name="entry_id" value="' . $entryId . '">'
+                . '<input type="hidden" name="paper_id" value="' . $paperId . '">'
+                . '<input type="hidden" name="subject_id" value="' . $subjectId . '">'
+                . '<input type="hidden" name="verification_status" value="correct">'
+                . '<input type="hidden" name="verification_action" value="verify_recheck">'
+                . '<input type="hidden" name="ajax" value="1">'
+                . '<input type="hidden" name="scrutiny_reason" value="">'
+                . '<button type="submit" name="verification_action" value="verify_recheck" title="Confirm corrected mark">&#10003;</button>'
+                . '<button type="submit" name="verification_action" value="reopen_scrutiny" title="Notify Admin that the mark is still wrong">&#10007;</button>'
+                . '</form>'
+                . '<span class="no-print verification-status" style="display:block;color:#1f4e79;font-size:10px;">Awaiting Re-check</span>';
         }
     }
 
@@ -688,7 +707,17 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                           AND active_sc.subject_id = fme.subject_id
                                           AND COALESCE(active_sc.paper_id, 0) = COALESCE(fme.paper_id, 0)
                                           AND active_sc.status IN ('awaiting_admin', 'awaiting_recheck')
-                                 ) AS active_case_count,
+                                                                 ) AS active_case_count,
+                                COALESCE((
+                                        SELECT sc.status
+                                        FROM scrutiny_cases sc
+                                        WHERE sc.student_id = fme.student_id
+                                            AND sc.subject_id = fme.subject_id
+                                            AND COALESCE(sc.paper_id, 0) = COALESCE(fme.paper_id, 0)
+                                            AND sc.status IN ('awaiting_admin', 'awaiting_recheck')
+                                        ORDER BY sc.case_id DESC
+                                        LIMIT 1
+                                ), '') AS active_case_status,
                 COALESCE(
                     (
                         SELECT CEIL(scl.new_marks)

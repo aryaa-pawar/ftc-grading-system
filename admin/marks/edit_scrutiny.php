@@ -160,7 +160,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['save_scrutiny
                     continue;
                 }
 
-                $stmt = $pdo->prepare('UPDATE faculty_marks_entry SET marks_obtained = :marks, graded_at = CURRENT_TIMESTAMP WHERE entry_id = :entry_id AND student_id = :student_id AND subject_id = :subject_id');
+                $stmt = $pdo->prepare('UPDATE faculty_marks_entry SET marks_obtained = :marks, verification_status = NULL, verification_notified_at = NULL, graded_at = CURRENT_TIMESTAMP WHERE entry_id = :entry_id AND student_id = :student_id AND subject_id = :subject_id');
                 $stmt->execute([':marks' => $newMarks, ':entry_id' => $assessmentEntryId, ':student_id' => $case['student_id'], ':subject_id' => $case['subject_id']]);
                 $stmt = $pdo->prepare("INSERT INTO scrutiny_mark_change_log (case_id, student_id, subject_id, entry_id, old_marks, new_marks, changed_by_user_id, reason, action) VALUES (:case_id, :student_id, :subject_id, :entry_id, :old_marks, :new_marks, :user_id, :reason, 'scrutiny_correction')");
                 $stmt->execute([':case_id' => $case['case_id'], ':student_id' => $case['student_id'], ':subject_id' => $case['subject_id'], ':entry_id' => $assessmentEntryId, ':old_marks' => $oldMarks, ':new_marks' => $newMarks, ':user_id' => $user['user_id'], ':reason' => $reason]);
