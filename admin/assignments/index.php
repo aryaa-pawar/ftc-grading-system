@@ -16,6 +16,7 @@ $error = "";
 
 $assignments = [];
 $faculties = [];
+$facultyGroups = [];
 
 $selectedFaculty = isset($_GET["faculty_id"])
     ? (int) $_GET["faculty_id"]
@@ -159,6 +160,20 @@ try {
             PDO::FETCH_ASSOC
         );
 
+    foreach ($assignments as $assignment) {
+        $facultyId = (int)$assignment['faculty_id'];
+        if (!isset($facultyGroups[$facultyId])) {
+            $facultyGroups[$facultyId] = [
+                'faculty_id' => $facultyId,
+                'faculty_name' => $assignment['faculty_name'],
+                'email' => $assignment['email'],
+                'contact_number' => $assignment['contact_number'],
+                'assignments' => []
+            ];
+        }
+        $facultyGroups[$facultyId]['assignments'][] = $assignment;
+    }
+
 
 } catch (PDOException $e) {
 
@@ -208,6 +223,89 @@ require_once "../../includes/header.php";
         <!-- MAIN CONTENT -->
 
         <main style="
+            <style>
+                .faculty-card-grid {
+                    display:grid;
+                    grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+                    gap:16px;
+                }
+                .faculty-card {
+                    border:1px solid #d9e1e8;
+                    border-radius:8px;
+                    background:#ffffff;
+                    overflow:hidden;
+                }
+                .faculty-card summary {
+                    list-style:none;
+                    cursor:pointer;
+                    padding:18px;
+                }
+                .faculty-card summary::-webkit-details-marker {
+                    display:none;
+                }
+                .faculty-card summary:hover {
+                    background:#f4f8fb;
+                }
+                .faculty-card-name {
+                    color:#1f4e79;
+                    font-size:17px;
+                    font-weight:bold;
+                }
+                .faculty-card-contact {
+                    margin-top:6px;
+                    color:#666666;
+                    font-size:12px;
+                    overflow-wrap:anywhere;
+                }
+                .faculty-card-count {
+                    display:inline-block;
+                    margin-top:12px;
+                    padding:4px 8px;
+                    border-radius:12px;
+                    background:#eaf2f8;
+                    color:#1f4e79;
+                    font-size:11px;
+                    font-weight:bold;
+                }
+                .faculty-card-body {
+                    padding:0 18px 18px;
+                    border-top:1px solid #e7edf2;
+                }
+                .faculty-assignment {
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:flex-start;
+                    gap:12px;
+                    padding:13px 0;
+                    border-bottom:1px solid #eeeeee;
+                }
+                .faculty-assignment:last-child {
+                    border-bottom:0;
+                }
+                .faculty-assignment-title {
+                    color:#222222;
+                    font-weight:bold;
+                    font-size:13px;
+                }
+                .faculty-assignment-meta {
+                    margin-top:4px;
+                    color:#666666;
+                    font-size:12px;
+                }
+                .faculty-assignment-delete {
+                    flex-shrink:0;
+                    color:#a12622;
+                    font-size:12px;
+                    font-weight:bold;
+                    text-decoration:none;
+                }
+                .faculty-assignment-delete:hover {
+                    text-decoration:underline;
+                }
+                .legacy-assignment-table {
+                    display:none;
+                }
+            </style>
             flex:1;
             padding:30px;
             background:#f4f6f8;
@@ -240,6 +338,35 @@ require_once "../../includes/header.php";
 
 
                     <p style="
+                    <div class="faculty-card-grid">
+                        <?php foreach ($facultyGroups as $facultyGroup): ?>
+                            <details class="faculty-card">
+                                <summary>
+                                    <div class="faculty-card-name"><?php echo htmlspecialchars($facultyGroup['faculty_name']); ?></div>
+                                    <div class="faculty-card-contact">
+                                        <?php echo htmlspecialchars($facultyGroup['email']); ?><br>
+                                        <?php echo htmlspecialchars($facultyGroup['contact_number'] ?? 'Not available'); ?>
+                                    </div>
+                                    <span class="faculty-card-count"><?php echo count($facultyGroup['assignments']); ?> assigned subject<?php echo count($facultyGroup['assignments']) === 1 ? '' : 's'; ?></span>
+                                </summary>
+                                <div class="faculty-card-body">
+                                    <?php foreach ($facultyGroup['assignments'] as $assignment): ?>
+                                        <div class="faculty-assignment">
+                                            <div>
+                                                <div class="faculty-assignment-title">
+                                                    <?php echo htmlspecialchars($assignment['subject_code']); ?> - <?php echo htmlspecialchars($assignment['subject_name']); ?>
+                                                </div>
+                                                <div class="faculty-assignment-meta">
+                                                    <?php echo htmlspecialchars($assignment['batch_name']); ?> · <?php echo htmlspecialchars($assignment['station']); ?> · <?php echo $assignment['is_elective'] ? 'Elective' : 'Core'; ?>
+                                                </div>
+                                            </div>
+                                            <a class="faculty-assignment-delete" href="delete.php?batch_id=<?php echo (int)$assignment['batch_id']; ?>&amp;subject_id=<?php echo (int)$assignment['subject_id']; ?>&amp;faculty_id=<?php echo (int)$assignment['faculty_id']; ?>" onclick="return confirm('Remove this faculty assignment?');">Delete</a>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </details>
+                        <?php endforeach; ?>
+                    </div>
                         margin:0;
                         color:#666;
                         font-size:16px;

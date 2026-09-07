@@ -91,6 +91,8 @@ try {
                 b.commenced_date,
                 b.completed_date,
                 b.station,
+                b.status,
+                b.is_locked,
 
                 COUNT(
                     DISTINCT sfm.subject_id
@@ -102,15 +104,15 @@ try {
                 ON sfm.batch_id = b.batch_id
 
             WHERE sfm.faculty_id = ?
-                AND b.status != 'Completed'
-
             GROUP BY
 
                 b.batch_id,
                 b.batch_name,
                 b.commenced_date,
                 b.completed_date,
-                b.station
+                b.station,
+                b.status,
+                b.is_locked
 
             ORDER BY
                 b.batch_name ASC
@@ -734,6 +736,12 @@ try {
 
                             </h2>
 
+                            <?php if (($batch['status'] ?? '') === 'Completed' || !empty($batch['is_locked'])): ?>
+                                <div style="display:inline-block;margin:0 0 14px;padding:6px 10px;border-radius:4px;background:#e8f4ec;color:#216e39;font-size:12px;font-weight:bold;">
+                                    Results Declared
+                                </div>
+                            <?php endif; ?>
+
 
                             <div class="batch-details">
 
@@ -834,14 +842,18 @@ try {
                             <br>
 
 
-                            <a
-                                href="exams/index.php?batch_id=<?php echo (int)$batch['batch_id']; ?>"
-                                class="open-button"
-                            >
-
-                                Open Batch
-
-                            </a>
+                            <?php if (($batch['status'] ?? '') === 'Completed' || !empty($batch['is_locked'])): ?>
+                                <div style="margin-top:12px;color:#666;font-size:12px;">
+                                    Marks are no longer available for faculty viewing.
+                                </div>
+                            <?php else: ?>
+                                <a
+                                    href="exams/index.php?batch_id=<?php echo (int)$batch['batch_id']; ?>"
+                                    class="open-button"
+                                >
+                                    Open Batch
+                                </a>
+                            <?php endif; ?>
 
 
                         </div>

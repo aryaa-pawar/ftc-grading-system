@@ -151,6 +151,7 @@ try {
                 b.batch_id = ?
                 AND sfm.faculty_id = ?
                 AND b.status != 'Completed'
+                AND COALESCE(b.is_locked, 0) = 0
 
             LIMIT 1
         ");
@@ -172,14 +173,15 @@ try {
 
             // Check if this batch exists but is simply Completed
             $chkStmt = $pdo->prepare("
-                SELECT status FROM batches WHERE batch_id = ? LIMIT 1
+                SELECT status, is_locked FROM batches WHERE batch_id = ? LIMIT 1
             ");
             $chkStmt->execute([$batchId]);
-            $batchStatus = $chkStmt->fetchColumn();
+            $batchInfo = $chkStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $batchStatus = $batchInfo['status'] ?? null;
 
-            if ($batchStatus === 'Completed') {
+            if ($batchStatus === 'Completed' || !empty($batchInfo['is_locked'])) {
                 $errorMessage =
-                    "This batch has been marked as Completed. Marks entry is no longer available for completed batches.";
+                    "Results for this batch have been declared. Assigned marks are no longer available for faculty viewing.";
             } else {
                 $errorMessage =
                     "This batch is not assigned to you.";
