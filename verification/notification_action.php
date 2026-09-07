@@ -27,7 +27,7 @@ try {
         if (!$changedEntryIds) throw new Exception('No corrected assessment entries were found for this re-check.');
         error_log('Scrutiny recheck verified entry_ids: ' . implode(',', $changedEntryIds));
 
-        $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, read_at = COALESCE(read_at, NOW()), verified_at = NOW() WHERE notification_id = :id AND recipient_user_id = :user_id AND status = 'awaiting_recheck'");
+        $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1 WHERE notification_id = :id AND recipient_user_id = :user_id AND status = 'awaiting_recheck'");
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
         if ($stmt->rowCount() !== 1) throw new Exception('Notification is no longer awaiting re-check.');
         $stmt = $pdo->prepare("UPDATE scrutiny_cases sc INNER JOIN scrutiny_notifications sn ON sn.case_id = sc.case_id SET sc.status = 'verified' WHERE sn.notification_id = :id AND sn.recipient_user_id = :user_id");
@@ -66,7 +66,7 @@ try {
         if (!$changedEntryIds) throw new Exception('No corrected assessment entries were found for this re-check.');
         error_log('Scrutiny recheck rejected entry_ids: ' . implode(',', $changedEntryIds));
 
-        $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, read_at = COALESCE(read_at, NOW()), verified_at = COALESCE(verified_at, NOW()) WHERE notification_id = :id AND recipient_user_id = :user_id AND status = 'awaiting_recheck'");
+        $stmt = $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1 WHERE notification_id = :id AND recipient_user_id = :user_id AND status = 'awaiting_recheck'");
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
 
         $entryStmt = $pdo->prepare('SELECT entry_id FROM faculty_marks_entry WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = COALESCE(:paper_id, 0)');
@@ -96,7 +96,7 @@ try {
         $pdo->commit();
         $redirectBatchId = (int)$notificationStudent['batch_id'];
     } else {
-        $stmt = $pdo->prepare('UPDATE scrutiny_notifications SET is_read = 1, read_at = COALESCE(read_at, NOW()) WHERE notification_id = :id AND recipient_user_id = :user_id');
+        $stmt = $pdo->prepare('UPDATE scrutiny_notifications SET is_read = 1 WHERE notification_id = :id AND recipient_user_id = :user_id');
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
     }
     if (in_array($action, ['verified', 'not_correct'], true)) {
