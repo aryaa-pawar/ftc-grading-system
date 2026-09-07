@@ -907,6 +907,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
         background: #ffffff;
         border: 1px solid #777777;
         overflow: auto;
+        max-height: calc(100vh - 300px);
         width: 100%;
         box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
@@ -1013,6 +1014,62 @@ if ($selectedBatchId > 0 && !empty($students)) {
 
     .tabulation-table tbody tr:hover td {
         background: #f4f8fb;
+    }
+
+    .student-tools {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        padding: 12px 14px;
+        background: #ffffff;
+        border: 1px solid #d9d9d9;
+        border-radius: 6px;
+    }
+
+    .student-search {
+        flex: 1 1 260px;
+        min-width: 220px;
+        height: 36px;
+        box-sizing: border-box;
+        padding: 0 11px;
+        border: 1px solid #bfc8d0;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .student-tool-btn {
+        height: 36px;
+        padding: 0 13px;
+        border: 1px solid #1f4e79;
+        border-radius: 4px;
+        background: #ffffff;
+        color: #1f4e79;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .student-tool-btn.active,
+    .student-tool-btn:hover {
+        background: #1f4e79;
+        color: #ffffff;
+    }
+
+    .student-focus-label {
+        color: #555555;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .tabulation-table tbody tr.student-selected td {
+        background: #fff4cc !important;
+        box-shadow: inset 0 2px 0 #d49b00, inset 0 -2px 0 #d49b00;
+    }
+
+    .tabulation-table tbody tr.student-hidden {
+        display: none;
     }
 
     .mark-cell {
@@ -1206,6 +1263,13 @@ if ($selectedBatchId > 0 && !empty($students)) {
                     </div>
                 <?php else: ?>
 
+                    <div class="student-tools no-print">
+                        <input type="search" id="student-search" class="student-search" placeholder="Search student name or roll number..." aria-label="Search student name or roll number">
+                        <button type="button" class="student-tool-btn" id="focus-student-btn">Focus Selected Student</button>
+                        <button type="button" class="student-tool-btn" id="show-all-students-btn">Show All Students</button>
+                        <span class="student-focus-label" id="student-focus-label">Select a student row to focus</span>
+                    </div>
+
                     <!-- TABULATION TABLE -->
                     <div class="table-wrapper">
                         <table class="tabulation-table">
@@ -1316,7 +1380,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
                                         }
                                         $allApplicableMarksReviewed = $applicableMarkCount > 0 && $correctMarkCount === $applicableMarkCount && !$hasPendingNotifiedChanges;
                                     ?>
-                                    <tr>
+                                    <tr data-student-name="<?php echo h(strtolower((string)$student['student_name'])); ?>" data-student-roll="<?php echo h(strtolower((string)$student['roll_no'])); ?>">
                                         <!-- S.NO -->
                                         <td><?php echo $serialNo++; ?></td>
 
@@ -1521,7 +1585,88 @@ if ($selectedBatchId > 0 && !empty($students)) {
         }
     }
 
-    document.querySelectorAll('.tabulation-table tbody tr').forEach(updateStudentConfirmation);
+    var studentRows = Array.from(document.querySelectorAll('.tabulation-table tbody tr'));
+    var selectedStudentRow = null;
+    var focusMode = false;
+    var searchInput = document.getElementById('student-search') || {value: ''};
+    var focusStudentButton = document.getElementById('focus-student-btn');
+    var showAllStudentsButton = document.getElementById('show-all-students-btn');
+    var focusLabel = document.getElementById('student-focus-label') || {textContent: ''};
+
+    function updateFocusLabel() {
+        if (!selectedStudentRow) {
+            focusLabel.textContent = 'Select a student row to focus';
+            return;
+        }
+        var name = selectedStudentRow.querySelector('.student-info strong');
+        var roll = selectedStudentRow.dataset.studentRoll || '';
+        focusLabel.textContent = focusMode
+            ? 'Reviewing: ' + (name ? name.textContent.trim() : roll)
+            : 'Selected: ' + (name ? name.textContent.trim() : roll);
+    }
+
+    function applyStudentView() {
+        var query = (searchInput.value || '').trim().toLowerCase();
+        studentRows.forEach(function (row) {
+            var matchesSearch = !query
+                || (row.dataset.studentName || '').indexOf(query) !== -1
+                || (row.dataset.studentRoll || '').indexOf(query) !== -1;
+            var matchesFocus = !focusMode || row === selectedStudentRow;
+            row.classList.toggle('student-hidden', !matchesSearch || !matchesFocus);
+        });
+    }
+
+    studentRows.forEach(function (row) {
+        updateStudentConfirmation(row);
+        row.addEventListener('click', function (event) {
+            if (event.target.closest('button, form, input, a')) {
+                return;
+            }
+            if (selectedStudentRow) {
+                selectedStudentRow.classList.remove('student-selected');
+            }
+            selectedStudentRow = row;
+            selectedStudentRow.classList.add('student-selected');
+            updateFocusLabel();
+        });
+    });
+
+    if (searchInput.addEventListener) {
+        searchInput.addEventListener('input', function () {
+            applyStudentView();
+        });
+    }
+
+    if (focusStudentButton) {
+        focusStudentButton.addEventListener('click', function () {
+        if (!selectedStudentRow) {
+            var firstVisible = studentRows.find(function (row) {
+                return !row.classList.contains('student-hidden');
+            });
+            if (firstVisible) {
+                selectedStudentRow = firstVisible;
+                selectedStudentRow.classList.add('student-selected');
+            }
+        }
+        if (selectedStudentRow) {
+            focusMode = true;
+            focusStudentButton.classList.add('active');
+            applyStudentView();
+            updateFocusLabel();
+        }
+        });
+    }
+
+    if (showAllStudentsButton) {
+        showAllStudentsButton.addEventListener('click', function () {
+        focusMode = false;
+        focusStudentButton.classList.remove('active');
+        applyStudentView();
+        updateFocusLabel();
+        });
+    }
+
+    updateFocusLabel();
 
     document.addEventListener('submit', function (event) {
         var form = event.target.closest('form');
