@@ -189,8 +189,9 @@ if (!$isVerificationPanel) {
                 href="<?php echo htmlspecialchars($appBase . '/logout.php', ENT_QUOTES, 'UTF-8'); ?>"
                 style="
                     color: #ffffff;
+                    background: #c0392b;
                     text-decoration: none;
-                    border: 1px solid rgba(255,255,255,0.75);
+                    border: 1px solid #a93226;
                     border-radius: 4px;
                     padding: 6px 12px;
                 "

@@ -895,15 +895,6 @@ if ($selectedBatchId > 0 && !empty($students)) {
         background: #173b5c;
     }
 
-    .print-btn {
-        background: #555555;
-        color: #ffffff;
-    }
-
-    .print-btn:hover {
-        background: #333333;
-    }
-
     .table-wrapper {
         margin-top: 25px;
         background: #ffffff;
@@ -1232,9 +1223,6 @@ if ($selectedBatchId > 0 && !empty($students)) {
 
                             <!-- VIEW BUTTON -->
                             <button type="submit" class="btn view-btn">View</button>
-
-                            <!-- PRINT BUTTON -->
-                            <button type="button" class="btn print-btn" onclick="window.print()">Print</button>
 
                         </div>
                     </form>

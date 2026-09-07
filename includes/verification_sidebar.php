@@ -149,6 +149,7 @@ $verifBase    = $appBase . "/verification";
 .sidebar-footer .logout-item {
     color: #c0392b;
     font-weight: 700;
+    background: #fff5f4;
 }
 
 .sidebar-footer .logout-item:hover {
