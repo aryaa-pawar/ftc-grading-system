@@ -736,7 +736,7 @@ try {
 
                             </h2>
 
-                            <?php if (($batch['status'] ?? '') === 'Completed' || !empty($batch['is_locked'])): ?>
+                            <?php if (in_array(($batch['status'] ?? ''), ['Result Declared', 'Completed'], true) || !empty($batch['is_locked'])): ?>
                                 <div style="display:inline-block;margin:0 0 14px;padding:6px 10px;border-radius:4px;background:#e8f4ec;color:#216e39;font-size:12px;font-weight:bold;">
                                     Results Declared
                                 </div>
@@ -842,7 +842,7 @@ try {
                             <br>
 
 
-                            <?php if (($batch['status'] ?? '') === 'Completed' || !empty($batch['is_locked'])): ?>
+                            <?php if (in_array(($batch['status'] ?? ''), ['Result Declared', 'Completed'], true) || !empty($batch['is_locked'])): ?>
                                 <div style="margin-top:12px;color:#666;font-size:12px;">
                                     Marks are no longer available for faculty viewing.
                                 </div>

@@ -86,8 +86,8 @@ try {
         throw new Exception("This subject is not assigned to this faculty for this batch.");
     }
 
-    if (($assignment['batch_status'] ?? '') === 'Completed') {
-        throw new Exception("This batch has been marked as Completed. Marks entry is no longer available.");
+    if (in_array(($assignment['batch_status'] ?? ''), ['Result Declared', 'Completed'], true)) {
+        throw new Exception("Results for this batch have been declared. Marks entry is no longer available.");
     }
 
     /* Get Mapped Papers for this Subject (Theory / Practical) */

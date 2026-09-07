@@ -150,7 +150,7 @@ try {
             WHERE
                 b.batch_id = ?
                 AND sfm.faculty_id = ?
-                AND b.status != 'Completed'
+                AND b.status NOT IN ('Result Declared', 'Completed')
                 AND COALESCE(b.is_locked, 0) = 0
 
             LIMIT 1
@@ -179,7 +179,7 @@ try {
             $batchInfo = $chkStmt->fetch(PDO::FETCH_ASSOC) ?: [];
             $batchStatus = $batchInfo['status'] ?? null;
 
-            if ($batchStatus === 'Completed' || !empty($batchInfo['is_locked'])) {
+            if (in_array($batchStatus, ['Result Declared', 'Completed'], true) || !empty($batchInfo['is_locked'])) {
                 $errorMessage =
                     "Results for this batch have been declared. Assigned marks are no longer available for faculty viewing.";
             } else {
