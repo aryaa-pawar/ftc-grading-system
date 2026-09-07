@@ -804,6 +804,8 @@ if ($selectedBatchId > 0 && !empty($students)) {
     .marks-page {
         background: #f4f6f8;
         min-height: 100vh;
+        min-width: 0;
+        overflow-x: hidden;
         padding: 30px;
     }
 
@@ -1021,6 +1023,9 @@ if ($selectedBatchId > 0 && !empty($students)) {
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
         margin-top: 16px;
         padding: 12px 14px;
         background: #ffffff;
@@ -1030,7 +1035,7 @@ if ($selectedBatchId > 0 && !empty($students)) {
 
     .student-search {
         flex: 1 1 260px;
-        min-width: 220px;
+        min-width: 0;
         height: 36px;
         box-sizing: border-box;
         padding: 0 11px;
