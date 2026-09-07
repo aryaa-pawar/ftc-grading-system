@@ -232,9 +232,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['verification_
                 $changedStmt->execute([$caseId]);
                 $changedEntryIds = array_map('intval', $changedStmt->fetchAll(PDO::FETCH_COLUMN));
                 if (!$changedEntryIds) throw new Exception('No corrected assessment entries were found for this re-check.');
-                $entryPlaceholders = implode(',', array_fill(0, count($changedEntryIds), '?'));
+                $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
                 $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders)");
-                $stmt->execute($changedEntryIds);
+                $stmt->execute($subjectEntryIds);
                 $pdo->prepare('UPDATE scrutiny_cases SET status = \'verified\' WHERE case_id = ?')->execute([$caseId]);
                 $pdo->prepare("UPDATE scrutiny_notifications SET status = 'verified', is_read = 1, verified_at = NOW() WHERE case_id = ? AND status = 'awaiting_recheck'")->execute([$caseId]);
                 $pdo->commit();

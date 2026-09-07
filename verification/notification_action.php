@@ -34,9 +34,17 @@ try {
         $stmt->execute([':id' => $notificationId, ':user_id' => $user['user_id']]);
         $stmt = $pdo->prepare("UPDATE students SET verification_status = NULL WHERE student_id = :student_id AND batch_id = :batch_id");
         $stmt->execute([':student_id' => $notificationStudent['student_id'], ':batch_id' => $notificationStudent['batch_id']]);
-        $changedPlaceholders = implode(',', array_fill(0, count($changedEntryIds), '?'));
-        $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE entry_id IN ($changedPlaceholders)");
-        $stmt->execute($changedEntryIds);
+        $entryStmt = $pdo->prepare('SELECT entry_id FROM faculty_marks_entry WHERE student_id = :student_id AND subject_id = :subject_id AND COALESCE(paper_id, 0) = COALESCE(:paper_id, 0)');
+        $entryStmt->execute([
+            ':student_id' => $notificationStudent['student_id'],
+            ':subject_id' => $notificationStudent['subject_id'],
+            ':paper_id' => $notificationStudent['paper_id']
+        ]);
+        $subjectEntryIds = array_map('intval', $entryStmt->fetchAll(PDO::FETCH_COLUMN));
+        if (!$subjectEntryIds) throw new Exception('No subject assessment entries were found for this re-check.');
+        $entryPlaceholders = implode(',', array_fill(0, count($subjectEntryIds), '?'));
+        $stmt = $pdo->prepare("UPDATE faculty_marks_entry SET verification_status = 'correct', verification_notified_at = NULL WHERE entry_id IN ($entryPlaceholders)");
+        $stmt->execute($subjectEntryIds);
         $stmt = $pdo->prepare("INSERT INTO admin_notifications (student_id, batch_id, entry_id, verification_status, message) VALUES (:student_id, :batch_id, :entry_id, 'correct', :message)");
         $stmt->execute([
             ':student_id' => $notificationStudent['student_id'],
