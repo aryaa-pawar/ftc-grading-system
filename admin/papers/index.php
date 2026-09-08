@@ -44,13 +44,16 @@ try {
         FROM papers p
         LEFT JOIN paper_subject_mapping psm 
             ON p.paper_id = psm.paper_id
-            AND psm.batch_id = :batch_id
-        WHERE p.batch_id = :batch_id
+            AND psm.batch_id = :mapping_batch_id
+        WHERE p.batch_id = :paper_batch_id
         GROUP BY p.paper_id
         ORDER BY p.paper_id ASC
     ");
 
-    $stmt->execute([':batch_id' => $selectedBatchId]);
+    $stmt->execute([
+        ':mapping_batch_id' => $selectedBatchId,
+        ':paper_batch_id' => $selectedBatchId
+    ]);
     $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
