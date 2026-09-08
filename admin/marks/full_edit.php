@@ -171,12 +171,179 @@ require_once __DIR__ . "/../../includes/sidebar.php";
 ?>
 
 <main style="flex:1; padding:30px; background:#f4f6f8; min-width:0; overflow-x:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <style>
+        .full-edit-page {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .full-edit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .full-edit-header h1 {
+            margin: 0;
+            color: #1f4e79;
+            font-size: 28px;
+        }
+
+        .full-edit-header p {
+            margin: 6px 0 0;
+            color: #667085;
+            font-size: 14px;
+        }
+
+        .full-edit-back {
+            flex-shrink: 0;
+            background: #6c757d;
+            color: #fff;
+            padding: 10px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .full-edit-student,
+        .full-edit-card {
+            background: #fff;
+            border: 1px solid #e1e6eb;
+            border-radius: 6px;
+            box-shadow: 0 2px 7px rgba(31, 78, 121, 0.06);
+        }
+
+        .full-edit-student {
+            padding: 16px 20px;
+            margin-bottom: 18px;
+            color: #344054;
+        }
+
+        .full-edit-student strong {
+            color: #1f4e79;
+            font-size: 15px;
+        }
+
+        .full-edit-card {
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .full-edit-table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: collapse;
+            color: #344054;
+            font-size: 13px;
+        }
+
+        .full-edit-table th {
+            padding: 12px 10px;
+            background: #1f4e79;
+            color: #fff;
+            text-align: left;
+            font-size: 12px;
+            letter-spacing: .2px;
+            white-space: nowrap;
+        }
+
+        .full-edit-table th:nth-child(3),
+        .full-edit-table th:nth-child(4),
+        .full-edit-table th:nth-child(5),
+        .full-edit-table th:nth-child(6),
+        .full-edit-table td:nth-child(3),
+        .full-edit-table td:nth-child(4),
+        .full-edit-table td:nth-child(5),
+        .full-edit-table td:nth-child(6) {
+            text-align: center;
+        }
+
+        .full-edit-table td {
+            padding: 11px 10px;
+            border-bottom: 1px solid #eaecf0;
+            vertical-align: middle;
+        }
+
+        .full-edit-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .full-edit-table input[type="number"] {
+            width: 92px;
+            padding: 8px 9px;
+            border: 1px solid #b8c4d0;
+            border-radius: 4px;
+            text-align: center;
+            color: #1f2937;
+            background: #fff;
+        }
+
+        .full-edit-table input[type="number"]:focus,
+        .full-edit-reason:focus {
+            outline: none;
+            border-color: #1f4e79;
+            box-shadow: 0 0 0 3px rgba(31, 78, 121, .12);
+        }
+
+        .full-edit-status {
+            color: #278a4b;
+            font-weight: bold;
+        }
+
+        .full-edit-reason-label {
+            display: block;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #344054;
+        }
+
+        .full-edit-reason {
+            width: 100%;
+            min-height: 76px;
+            margin-top: 7px;
+            padding: 10px;
+            border: 1px solid #b8c4d0;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        .full-edit-save {
+            margin-top: 15px;
+            background: #1f4e79;
+            color: #fff;
+            border: 0;
+            padding: 11px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .full-edit-save:hover,
+        .full-edit-back:hover {
+            filter: brightness(.92);
+        }
+
+        @media (max-width: 700px) {
+            .full-edit-header {
+                flex-direction: column;
+            }
+
+            .full-edit-back {
+                align-self: flex-start;
+            }
+        }
+    </style>
+
+    <div class="full-edit-page">
+    <div class="full-edit-header">
         <div>
-            <h1 style="margin:0;color:#1f4e79;">Admin Full Marks Edit</h1>
-            <p style="margin:6px 0 0;color:#666;">Edit Internal, Mid-Term, and Final marks within their configured maximums.</p>
+            <h1>Admin Full Marks Edit</h1>
+            <p>Edit Internal, Mid-Term, and Final marks within their configured maximums.</p>
         </div>
-        <a href="index.php" style="background:#6c757d;color:#fff;padding:10px 16px;text-decoration:none;border-radius:4px;">Back to Marks</a>
+        <a href="index.php" class="full-edit-back">Back to Marks</a>
     </div>
 
     <?php if ($errorMessage !== ''): ?><div style="background:#f8d7da;color:#721c24;padding:14px;margin-bottom:18px;border-radius:4px;"><?php echo fullEditHtml($errorMessage); ?></div><?php endif; ?>
@@ -185,29 +352,30 @@ require_once __DIR__ . "/../../includes/sidebar.php";
     <?php if (!$student): ?>
         <div style="background:#fff;padding:20px;border-radius:6px;">Open this page from Marks Management for a student.</div>
     <?php else: ?>
-        <div style="background:#fff;padding:18px 20px;border-radius:6px;margin-bottom:18px;"><strong><?php echo fullEditHtml($student['student_name']); ?></strong> | <?php echo fullEditHtml($student['roll_no']); ?> | <?php echo fullEditHtml($student['batch_name']); ?></div>
-        <form method="POST" style="background:#fff;padding:20px;border-radius:6px;">
+        <div class="full-edit-student"><strong><?php echo fullEditHtml($student['student_name']); ?></strong> <span>|</span> <?php echo fullEditHtml($student['roll_no']); ?> <span>|</span> <?php echo fullEditHtml($student['batch_name']); ?></div>
+        <form method="POST" class="full-edit-card">
             <input type="hidden" name="student_id" value="<?php echo $studentId; ?>">
-            <table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#1f4e79;color:#fff;"><th style="padding:10px;text-align:left;">Paper</th><th style="padding:10px;text-align:left;">Subject</th><th style="padding:10px;">Assessment</th><th style="padding:10px;">Maximum</th><th style="padding:10px;">Marks</th><th style="padding:10px;">Status</th></tr></thead>
+            <table class="full-edit-table">
+                <thead><tr><th>Paper</th><th>Subject</th><th>Assessment</th><th>Maximum</th><th>Marks</th><th>Status</th></tr></thead>
                 <tbody>
                 <?php foreach ($marks as $mark): ?>
                     <tr>
-                        <td style="padding:10px;border-bottom:1px solid #eee;"><?php echo fullEditHtml($mark['paper_code'] ?? ''); ?></td>
-                        <td style="padding:10px;border-bottom:1px solid #eee;"><?php echo fullEditHtml($mark['subject_code'] . ' - ' . $mark['subject_name']); ?></td>
-                        <td style="padding:10px;text-align:center;border-bottom:1px solid #eee;"><?php echo ['1' => 'Internal', '2' => 'Mid-Term', '3' => 'Final'][$mark['assessment_type_id']] ?? 'Other'; ?></td>
-                        <td style="padding:10px;text-align:center;border-bottom:1px solid #eee;"><?php echo number_format((float)$mark['max_marks'], 2); ?></td>
-                        <td style="padding:10px;text-align:center;border-bottom:1px solid #eee;"><input type="number" step="0.01" min="0" max="<?php echo fullEditHtml($mark['max_marks']); ?>" name="marks[<?php echo (int)$mark['entry_id']; ?>]" value="<?php echo fullEditHtml($mark['marks_obtained']); ?>" style="width:100px;padding:7px;"></td>
-                        <td style="padding:10px;text-align:center;border-bottom:1px solid #eee;"><?php echo ((int)$mark['is_absent'] === 1) ? 'Absent flag retained' : 'Editable'; ?></td>
+                        <td><?php echo fullEditHtml($mark['paper_code'] ?? ''); ?></td>
+                        <td><?php echo fullEditHtml($mark['subject_code'] . ' - ' . $mark['subject_name']); ?></td>
+                        <td><?php echo ['1' => 'Internal', '2' => 'Mid-Term', '3' => 'Final'][$mark['assessment_type_id']] ?? 'Other'; ?></td>
+                        <td><?php echo number_format((float)$mark['max_marks'], 2); ?></td>
+                        <td><input type="number" step="0.01" min="0" max="<?php echo fullEditHtml($mark['max_marks']); ?>" name="marks[<?php echo (int)$mark['entry_id']; ?>]" value="<?php echo fullEditHtml($mark['marks_obtained']); ?>"></td>
+                        <td class="full-edit-status"><?php echo ((int)$mark['is_absent'] === 1) ? 'Absent flag retained' : 'Editable'; ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>
-            <label style="display:block;margin-top:18px;font-weight:bold;">Reason for change <span style="font-weight:normal;color:#777;">(optional)</span></label>
-            <textarea name="reason" maxlength="500" style="width:100%;min-height:70px;padding:8px;margin-top:6px;"></textarea>
-            <button type="submit" name="save_full_marks" style="margin-top:15px;background:#1f4e79;color:#fff;border:0;padding:11px 18px;border-radius:4px;font-weight:bold;">Save All Marks</button>
+            <label class="full-edit-reason-label">Reason for change <span style="font-weight:normal;color:#667085;">(optional)</span></label>
+            <textarea name="reason" maxlength="500" class="full-edit-reason"></textarea>
+            <button type="submit" name="save_full_marks" class="full-edit-save">Save All Marks</button>
         </form>
     <?php endif; ?>
+    </div>
 </main>
 
 </div>
