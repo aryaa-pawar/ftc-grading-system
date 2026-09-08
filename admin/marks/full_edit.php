@@ -1,10 +1,10 @@
 <?php
 
 require_once __DIR__ . "/../../includes/auth.php";
-$adminUser = require_permission('marks.edit');
-if (!in_array($adminUser['role_name'] ?? '', ['admin', 'dept_admin', 'super_admin'], true)) {
+$adminUser = require_permission('marks.view');
+if (!in_array(strtolower((string)($adminUser['role_name'] ?? '')), ['admin', 'dept_admin', 'super_admin'], true)) {
     http_response_code(403);
-    exit('403 Forbidden');
+    exit('403 Forbidden: Admin access is required for Full Marks Edit.');
 }
 require_once __DIR__ . "/../../config/database.php";
 
