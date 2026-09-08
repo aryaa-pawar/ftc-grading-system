@@ -7,6 +7,15 @@ $pageTitle = "Paper & Grouping Management";
 $papers = [];
 $errorMessage = "";
 $successMessage = "";
+$batches = [];
+$selectedBatchId = isset($_GET['batch_id']) ? (int)$_GET['batch_id'] : 0;
+
+$batchStmt = $pdo->query("SELECT batch_id, batch_name FROM batches ORDER BY batch_id ASC");
+$batches = $batchStmt->fetchAll(PDO::FETCH_ASSOC);
+
+if ($selectedBatchId <= 0 && !empty($batches)) {
+    $selectedBatchId = (int)$batches[0]['batch_id'];
+}
 
 if (isset($_GET['success'])) {
     $successMessage = "Operation completed successfully.";
@@ -21,7 +30,7 @@ if (isset($_GET['success'])) {
 
 try {
 
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT 
             p.paper_id,
             p.paper_code,
@@ -35,10 +44,13 @@ try {
         FROM papers p
         LEFT JOIN paper_subject_mapping psm 
             ON p.paper_id = psm.paper_id
+            AND psm.batch_id = :batch_id
+        WHERE p.batch_id = :batch_id
         GROUP BY p.paper_id
         ORDER BY p.paper_id ASC
     ");
 
+    $stmt->execute([':batch_id' => $selectedBatchId]);
     $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
@@ -126,7 +138,7 @@ require_once "../../includes/header.php";
 
 
                     <a
-                        href="add.php"
+                        href="add.php?batch_id=<?php echo $selectedBatchId; ?>"
                         style="
                             display:inline-block;
                             background:#1f4e79;
@@ -145,7 +157,7 @@ require_once "../../includes/header.php";
 
 
                     <a
-                        href="grouping.php"
+                        href="grouping.php?batch_id=<?php echo $selectedBatchId; ?>"
                         style="
                             display:inline-block;
                             background:#28a745;
@@ -167,6 +179,17 @@ require_once "../../includes/header.php";
 
 
             </div>
+
+            <form method="GET" action="" style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+                <label for="batch_id" style="font-weight:bold; color:#1f4e79;">Training Batch:</label>
+                <select id="batch_id" name="batch_id" onchange="this.form.submit()" style="padding:10px 14px; border:1px solid #1f4e79; border-radius:4px; color:#1f4e79; font-weight:bold;">
+                    <?php foreach ($batches as $batch): ?>
+                        <option value="<?php echo (int)$batch['batch_id']; ?>" <?php echo ((int)$batch['batch_id'] === $selectedBatchId) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($batch['batch_name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
 
 
 
@@ -616,7 +639,7 @@ require_once "../../includes/header.php";
 
 
                                     <a
-                                        href="edit.php?id=<?php echo (int)$paper["paper_id"]; ?>"
+                                        href="edit.php?id=<?php echo (int)$paper["paper_id"]; ?>&batch_id=<?php echo $selectedBatchId; ?>"
                                         style="
                                             color:#1f4e79;
                                             text-decoration:none;
@@ -631,6 +654,7 @@ require_once "../../includes/header.php";
 
 
                                     <a
+                                        href="delete.php?id=<?php echo (int)$paper["paper_id"]; ?>&batch_id=<?php echo $selectedBatchId; ?>"
                                         href="delete.php?id=<?php echo (int)$paper["paper_id"]; ?>"
                                         onclick="return confirm('Are you sure you want to delete this paper?');"
                                         style="

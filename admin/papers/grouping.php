@@ -212,11 +212,13 @@ try {
     $stmt = $pdo->prepare("
         SELECT *
         FROM papers
-        WHERE (:paper_name = '' OR paper_name LIKE :paper_name_like)
+        WHERE batch_id = :batch_id
+        AND (:paper_name = '' OR paper_name LIKE :paper_name_like)
         ORDER BY paper_id ASC
     ");
 
     $stmt->execute([
+        ':batch_id' => $selectedBatchId,
         ':paper_name' => $paperSearch,
         ':paper_name_like' => '%' . $paperSearch . '%'
     ]);

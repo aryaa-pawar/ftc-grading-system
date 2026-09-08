@@ -170,7 +170,9 @@ CREATE TABLE papers (
 
     paper_id INT AUTO_INCREMENT PRIMARY KEY,
 
-    paper_code VARCHAR(10) NOT NULL UNIQUE,
+    batch_id INT NOT NULL,
+
+    paper_code VARCHAR(10) NOT NULL,
 
     paper_name VARCHAR(150) NOT NULL,
 
@@ -188,6 +190,12 @@ CREATE TABLE papers (
         NOT NULL DEFAULT 45.00,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_papers_batch_code (batch_id, paper_code),
+
+    CONSTRAINT fk_papers_batch
+        FOREIGN KEY (batch_id) REFERENCES batches(batch_id)
+        ON DELETE RESTRICT,
 
     CONSTRAINT chk_paper_weightages
         CHECK (
@@ -213,7 +221,13 @@ CREATE TABLE subjects (
 
     is_elective BOOLEAN DEFAULT FALSE,
 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_papers_batch_code (batch_id, paper_code),
+
+    FOREIGN KEY (batch_id)
+        REFERENCES batches(batch_id)
+        ON DELETE RESTRICT,
 
 ) ENGINE=InnoDB;
 

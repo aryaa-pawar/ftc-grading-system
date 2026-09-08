@@ -2,6 +2,61 @@
 -- Run once against the existing ftc_grading database after taking a backup.
 USE ftc_grading;
 
+-- Keep all existing papers in the first batch before enabling batch-specific paper definitions.
+SET @first_batch_id := (SELECT MIN(batch_id) FROM batches);
+
+DELETE FROM paper_subject_mapping
+WHERE @first_batch_id IS NOT NULL
+    AND batch_id <> @first_batch_id;
+
+SET @has_papers_batch := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'papers'
+      AND column_name = 'batch_id'
+);
+SET @sql := IF(
+    @has_papers_batch = 0 AND @first_batch_id IS NOT NULL,
+    CONCAT('ALTER TABLE papers ADD COLUMN batch_id INT NOT NULL DEFAULT ', @first_batch_id, ' AFTER paper_id'),
+    'SELECT 1'
+);
+PREPARE papers_batch_stmt FROM @sql;
+EXECUTE papers_batch_stmt;
+DEALLOCATE PREPARE papers_batch_stmt;
+
+SET @has_papers_batch_key := (
+    SELECT COUNT(*)
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'papers'
+      AND index_name = 'uq_papers_batch_code'
+);
+SET @sql := IF(
+    @has_papers_batch_key = 0,
+    'ALTER TABLE papers DROP INDEX paper_code, ADD UNIQUE KEY uq_papers_batch_code (batch_id, paper_code)',
+    'SELECT 1'
+);
+PREPARE papers_batch_key_stmt FROM @sql;
+EXECUTE papers_batch_key_stmt;
+DEALLOCATE PREPARE papers_batch_key_stmt;
+
+SET @has_papers_batch_fk := (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE constraint_schema = DATABASE()
+      AND table_name = 'papers'
+      AND constraint_name = 'fk_papers_batch'
+);
+SET @sql := IF(
+    @has_papers_batch_fk = 0,
+    'ALTER TABLE papers ADD CONSTRAINT fk_papers_batch FOREIGN KEY (batch_id) REFERENCES batches(batch_id) ON DELETE RESTRICT',
+    'SELECT 1'
+);
+PREPARE papers_batch_fk_stmt FROM @sql;
+EXECUTE papers_batch_fk_stmt;
+DEALLOCATE PREPARE papers_batch_fk_stmt;
+
 SET @has_batch_lock := (
     SELECT COUNT(*)
     FROM information_schema.columns

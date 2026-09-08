@@ -5,6 +5,7 @@ require_once __DIR__ . "/../../config/database.php";
 $pageTitle = "Edit Paper";
 $errorMessage = "";
 $paperId = isset($_GET["id"]) ? (int)$_GET["id"] : 0;
+$batchId = isset($_GET["batch_id"]) ? (int)$_GET["batch_id"] : (int)($_POST["batch_id"] ?? 0);
 
 if ($paperId <= 0) {
     header("Location: index.php");
@@ -12,8 +13,8 @@ if ($paperId <= 0) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM papers WHERE paper_id = :paper_id");
-    $stmt->execute([":paper_id" => $paperId]);
+    $stmt = $pdo->prepare("SELECT * FROM papers WHERE paper_id = :paper_id AND batch_id = :batch_id");
+    $stmt->execute([":paper_id" => $paperId, ":batch_id" => $batchId]);
     $paper = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$paper) {
@@ -58,7 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 ":paper_id" => $paperId
             ]);
 
-            header("Location: index.php?success=1");
+            header("Location: index.php?batch_id=" . $batchId . "&success=1");
             exit;
         } catch (PDOException $e) {
             $errorMessage = "Failed to update paper: " . $e->getMessage();
@@ -93,6 +94,8 @@ require_once "../../includes/header.php";
 
             <div style="background:#ffffff; border-radius:8px; border:1px solid #e0e0e0; padding:25px; max-width:600px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
                 <form method="POST" action="">
+
+                    <input type="hidden" name="batch_id" value="<?php echo $batchId; ?>">
 
                     <div style="margin-bottom:18px;">
                         <label style="display:block; font-weight:bold; margin-bottom:6px; color:#333;">Paper Code *</label>
@@ -140,7 +143,7 @@ require_once "../../includes/header.php";
                     </div>
 
                     <div style="display:flex; gap:10px; justify-content:flex-end;">
-                        <a href="index.php" style="padding:10px 18px; border:1px solid #ccc; background:#fff; color:#333; text-decoration:none; border-radius:4px; font-weight:bold;">Cancel</a>
+                        <a href="index.php?batch_id=<?php echo $batchId; ?>" style="padding:10px 18px; border:1px solid #ccc; background:#fff; color:#333; text-decoration:none; border-radius:4px; font-weight:bold;">Cancel</a>
                         <button type="submit" style="padding:10px 22px; background:#1f4e79; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Update Paper</button>
                     </div>
 

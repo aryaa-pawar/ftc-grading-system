@@ -4,6 +4,15 @@ require_once __DIR__ . "/../../config/database.php";
 
 $pageTitle = "Add Paper";
 $errorMessage = "";
+$batchId = isset($_GET["batch_id"]) ? (int)$_GET["batch_id"] : (int)($_POST["batch_id"] ?? 0);
+$batches = [];
+
+$batchStmt = $pdo->query("SELECT batch_id, batch_name FROM batches ORDER BY batch_id ASC");
+$batches = $batchStmt->fetchAll(PDO::FETCH_ASSOC);
+
+if ($batchId <= 0 && !empty($batches)) {
+    $batchId = (int)$batches[0]["batch_id"];
+}
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $paperCode = trim($_POST["paper_code"] ?? "");
@@ -14,15 +23,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $maxMidterm = (float)($_POST["max_midterm"] ?? 25.00);
     $maxFinal = (float)($_POST["max_final"] ?? 45.00);
 
-    if (empty($paperCode) || empty($paperName)) {
+    if ($batchId <= 0) {
+        $errorMessage = "Please select a training batch.";
+    } elseif (empty($paperCode) || empty($paperName)) {
         $errorMessage = "Paper Code and Paper Name are required.";
     } else {
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO papers (paper_code, paper_name, is_elective, paper_type, max_internal, max_midterm, max_final)
-                VALUES (:paper_code, :paper_name, :is_elective, :paper_type, :max_internal, :max_midterm, :max_final)
+                INSERT INTO papers (batch_id, paper_code, paper_name, is_elective, paper_type, max_internal, max_midterm, max_final)
+                VALUES (:batch_id, :paper_code, :paper_name, :is_elective, :paper_type, :max_internal, :max_midterm, :max_final)
             ");
             $stmt->execute([
+                ":batch_id" => $batchId,
                 ":paper_code" => $paperCode,
                 ":paper_name" => $paperName,
                 ":is_elective" => $isElective,
@@ -32,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 ":max_final" => $maxFinal
             ]);
 
-            header("Location: index.php?success=1");
+            header("Location: index.php?batch_id=" . $batchId . "&success=1");
             exit;
         } catch (PDOException $e) {
             $errorMessage = "Failed to add paper: " . $e->getMessage();
@@ -67,6 +79,17 @@ require_once "../../includes/header.php";
 
             <div style="background:#ffffff; border-radius:8px; border:1px solid #e0e0e0; padding:25px; max-width:600px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
                 <form method="POST" action="">
+
+                    <div style="margin-bottom:18px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:6px; color:#333;">Training Batch *</label>
+                        <select name="batch_id" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; font-size:14px;">
+                            <?php foreach ($batches as $batch): ?>
+                                <option value="<?php echo (int)$batch['batch_id']; ?>" <?php echo ((int)$batch['batch_id'] === $batchId) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($batch['batch_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
                     <div style="margin-bottom:18px;">
                         <label style="display:block; font-weight:bold; margin-bottom:6px; color:#333;">Paper Code *</label>
@@ -114,7 +137,7 @@ require_once "../../includes/header.php";
                     </div>
 
                     <div style="display:flex; gap:10px; justify-content:flex-end;">
-                        <a href="index.php" style="padding:10px 18px; border:1px solid #ccc; background:#fff; color:#333; text-decoration:none; border-radius:4px; font-weight:bold;">Cancel</a>
+                        <a href="index.php?batch_id=<?php echo $batchId; ?>" style="padding:10px 18px; border:1px solid #ccc; background:#fff; color:#333; text-decoration:none; border-radius:4px; font-weight:bold;">Cancel</a>
                         <button type="submit" style="padding:10px 22px; background:#1f4e79; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Save Paper</button>
                     </div>
 
