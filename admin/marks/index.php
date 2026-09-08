@@ -1007,6 +1007,9 @@ require_once __DIR__ . "/../../includes/header.php";
                                             <a href="view.php?student_id=<?php echo $studentId; ?>" class="action-btn view-action">
                                                 View
                                             </a>
+                                            <a href="full_edit.php?student_id=<?php echo $studentId; ?>" class="action-btn edit-action">
+                                                Full Edit
+                                            </a>
                                             <a href="edit_internal.php?student_id=<?php echo $studentId; ?>" class="action-btn edit-action">
                                                 Edit
                                             </a>

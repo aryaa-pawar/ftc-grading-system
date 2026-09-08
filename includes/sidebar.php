@@ -441,6 +441,14 @@ if (strpos($currentUri, "/admin/audit_logs.php") !== false) {
     </a>
 
     <a
+        href="<?php echo $adminBase; ?>/marks/full_edit.php"
+    >
+
+        Admin Full Marks Edit
+
+    </a>
+
+    <a
         href="<?php echo $adminBase; ?>/marks/edit_scrutiny.php"
         class="<?php echo $scrutinyMarksActive; ?>"
     >
