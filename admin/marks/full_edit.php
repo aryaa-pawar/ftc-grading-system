@@ -162,10 +162,15 @@ if ($studentId > 0) {
 
 require_once __DIR__ . "/../../includes/header.php";
 require_once __DIR__ . "/../../includes/navbar.php";
+?>
+
+<div style="display:flex; flex:1; min-height:calc(100vh - 60px);">
+
+<?php
 require_once __DIR__ . "/../../includes/sidebar.php";
 ?>
 
-<main style="margin-left:180px; padding:30px; background:#f4f6f8; min-height:calc(100vh - 55px);">
+<main style="flex:1; padding:30px; background:#f4f6f8; min-width:0; overflow-x:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
         <div>
             <h1 style="margin:0;color:#1f4e79;">Admin Full Marks Edit</h1>
@@ -204,5 +209,7 @@ require_once __DIR__ . "/../../includes/sidebar.php";
         </form>
     <?php endif; ?>
 </main>
+
+</div>
 
 <?php require_once __DIR__ . "/../../includes/footer.php"; ?>
