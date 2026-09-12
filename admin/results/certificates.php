@@ -53,58 +53,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_students_hindi']
     }
 }
 
-// Save Director Name
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_director'])) {
-    enforceCsrf();
-    $newDir = trim($_POST['director_name'] ?? '');
-    $newDirHindi = trim($_POST['director_name_hindi'] ?? '');
-    if ($newDir !== '' || $newDirHindi !== '') {
-        try {
-            $stmt = $pdo->prepare("
-                INSERT INTO system_settings (setting_key, setting_value)
-                VALUES ('director_name', :insert_value)
-                ON DUPLICATE KEY UPDATE setting_value = :update_value
-            ");
-            $stmt->execute([':insert_value' => $newDir, ':update_value' => $newDir]);
-
-            $stmt = $pdo->prepare("
-                INSERT INTO system_settings (setting_key, setting_value)
-                VALUES ('director_name_hindi', :insert_value)
-                ON DUPLICATE KEY UPDATE setting_value = :update_value
-            ");
-            $stmt->execute([':insert_value' => $newDirHindi, ':update_value' => $newDirHindi]);
-
-            $directorName = $newDir;
-            $directorNameHindi = $newDirHindi;
-            $successMessage = "Director Name saved successfully!";
-        } catch (PDOException $e) {
-            $errorMessage = "Unable to save Director Name: " . $e->getMessage();
-        }
-    }
-}
-
-// Fetch Director Name Defaults
-if (empty($directorName) || empty($directorNameHindi)) {
-    try {
-        $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('director_name', 'director_name_hindi')");
-        $stmt->execute();
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $setting) {
-            if ($setting['setting_key'] === 'director_name') {
-                $directorName = trim($setting['setting_value'] ?? '');
-            } elseif ($setting['setting_key'] === 'director_name_hindi') {
-                $directorNameHindi = trim($setting['setting_value'] ?? '');
-            }
-        }
-    } catch (PDOException $e) {}
-}
-
-if (empty($directorName)) $directorName = "K. N. Mohan";
-if (empty($directorNameHindi)) $directorNameHindi = "के.एन.मोहन";
-
 // Load Batches
 try {
     $stmt = $pdo->query("
-        SELECT batch_id, batch_name, batch_number, commenced_date, completed_date, station
+        SELECT batch_id, batch_name, batch_number, commenced_date, completed_date, station, director_name, director_name_hindi
         FROM batches
         ORDER BY batch_id ASC
     ");
@@ -123,6 +75,14 @@ foreach ($batches as $batch) {
         $currentBatch = $batch;
         break;
     }
+}
+
+if ($currentBatch) {
+    $directorName = !empty($currentBatch['director_name']) ? $currentBatch['director_name'] : "K. N. Mohan";
+    $directorNameHindi = !empty($currentBatch['director_name_hindi']) ? $currentBatch['director_name_hindi'] : "के.एन.मोहन";
+} else {
+    $directorName = "K. N. Mohan";
+    $directorNameHindi = "के.एन.मोहन";
 }
 
 // Load Students & Performance for Selected Batch
@@ -275,63 +235,35 @@ require_once __DIR__ . "/../../includes/header.php";
         </div>
     <?php endif; ?>
 
-    <!-- FILTER & DIRECTOR FORM -->
+    <!-- BATCH FILTER & ASSIGNED DIRECTOR INFO -->
     <div class="filter-box">
-        <form method="GET" action="certificates.php" style="margin-bottom:15px;">
-            <div class="filter-row">
-                <div class="filter-field">
-                    <label>Select Batch:</label>
-                    <select name="batch_id" class="select-box" onchange="this.form.submit()">
-                        <?php foreach ($batches as $batch): ?>
-                            <option value="<?= $batch['batch_id'] ?>" <?= (int)$batch['batch_id'] === $selectedBatchId ? 'selected' : '' ?>>
-                                [Batch <?= h($batch['batch_number'] ?? $batch['batch_id']) ?>] <?= h($batch['batch_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+            <form method="GET" action="certificates.php" style="margin:0;">
+                <div class="filter-row">
+                    <div class="filter-field">
+                        <label>Select Batch:</label>
+                        <select name="batch_id" class="select-box" onchange="this.form.submit()">
+                            <?php foreach ($batches as $batch): ?>
+                                <option value="<?= $batch['batch_id'] ?>" <?= (int)$batch['batch_id'] === $selectedBatchId ? 'selected' : '' ?>>
+                                    [Batch <?= h($batch['batch_number'] ?? $batch['batch_id']) ?>] <?= h($batch['batch_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <button type="submit" class="btn-action">Load Batch</button>
+                    </div>
                 </div>
-                <div class="filter-field">
-                    <button type="submit" class="btn-action">Load Batch</button>
-                </div>
-            </div>
-        </form>
+            </form>
 
-        <form method="POST" action="certificates.php?batch_id=<?= $selectedBatchId ?>">
-            <?= csrfField() ?>
-            <div class="filter-row">
-                <div class="filter-field">
-                    <label>Director Name (English):</label>
-                    <input type="text" name="director_name" id="director_name_input" value="<?= h($directorName) ?>" class="input-box" placeholder="e.g. K. N. Mohan" required>
+            <?php if ($currentBatch): ?>
+                <div style="padding:10px 16px; background:#eaf2f8; border:1px solid #c8d9e6; border-radius:6px; font-size:13px; color:#1f4e79;">
+                    <strong>Assigned Director for this Batch:</strong> 
+                    <?= h($directorName) ?> (<?= h($directorNameHindi) ?>)
+                    <a href="../batches/edit.php?id=<?= $selectedBatchId ?>" style="margin-left:10px; color:#0284c7; text-decoration:underline; font-weight:bold;">⚙️ Edit in Batch Management</a>
                 </div>
-                <div class="filter-field">
-                    <button
-                        type="button"
-                        id="convert_director_name_button"
-                        onclick="convertDirectorNameToHindi()"
-                        class="btn-action"
-                        style="background:#1f4e79;"
-                    >
-                        Convert
-                    </button>
-                </div>
-                <div class="filter-field">
-                    <select
-                        id="director_name_hindi_suggestions"
-                        onchange="document.getElementById('director_name_hindi_input').value = this.value"
-                        class="select-box"
-                        style="display:none; min-width:160px;"
-                    >
-                        <option value="">Choose spelling</option>
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label>Director Name (Hindi):</label>
-                    <input type="text" name="director_name_hindi" id="director_name_hindi_input" value="<?= h($directorNameHindi) ?>" class="input-box" placeholder="e.g. के.एन.मोहन" required>
-                </div>
-                <div class="filter-field">
-                    <button type="submit" name="save_director" class="btn-action btn-success">Save Director Name</button>
-                </div>
-            </div>
-        </form>
+            <?php endif; ?>
+        </div>
     </div>
 
     <!-- STUDENT CERTIFICATE TABLE FORM -->
@@ -358,7 +290,6 @@ require_once __DIR__ . "/../../includes/header.php";
                             <th style="width:100px;">Prefix</th>
                             <th>Student Name (English)</th>
                             <th style="min-width:320px;">Student Name (Devanagari / Hindi)</th>
-                            <th>Director Name</th>
                             <th>Performance Level</th>
                             <th>Certificate Status</th>
                             <th style="text-align:center; width:170px;">Actions</th>
@@ -367,14 +298,13 @@ require_once __DIR__ . "/../../includes/header.php";
                     <tbody>
                         <?php if (empty($students)): ?>
                             <tr>
-                                <td colspan="9" style="text-align:center; padding:25px; color:#777;">No active students found in this batch.</td>
+                                <td colspan="8" style="text-align:center; padding:25px; color:#777;">No active students found in this batch.</td>
                             </tr>
                         <?php else: ?>
                             <?php $sn = 1; foreach ($students as $student): ?>
                                 <?php
                                     $sid = (int)$student['student_id'];
                                     $pfxVal = !empty($student['name_prefix']) ? $student['name_prefix'] : 'Mr.';
-                                    $genDir = !empty($student['generated_director_name']) ? $student['generated_director_name'] : 'Not Generated Yet';
                                     $isGen = !empty($student['generated_director_name']);
                                     $pct = isset($student['percentage']) ? (float)$student['percentage'] : null;
                                     $perfLabel = 'Satisfactory';
@@ -389,7 +319,7 @@ require_once __DIR__ . "/../../includes/header.php";
                                     <td><?= $sn++ ?></td>
                                     <td><strong><?= h($student['roll_no']) ?></strong></td>
                                     <td><select name="name_prefix[<?= $sid ?>]" class="select-box" style="min-width:85px; height:32px; padding:0 4px; font-size:12px;">
-                                        <?php foreach (['Mr.' => 'Mr. / श्री', 'Ms.' => 'Ms. / कुमारी', 'Mrs.' => 'Mrs. / श्रीमती', 'Dr.' => 'Dr. / डॉ.', 'Shri' => 'Shri / श्री', 'Smt.' => 'Smt. / श्रीमती'] as $prefix => $label): ?>
+                                        <?php foreach (['Mr.' => 'Mr. / श्री', 'Ms.' => 'Ms. / कुमारी', 'Mrs.' => 'Mrs. / सौ.', 'Dr.' => 'Dr. / डॉ.', 'Shri' => 'Shri / श्री', 'Smt.' => 'Smt. / श्रीमती'] as $prefix => $label): ?>
                                             <option value="<?= h($prefix) ?>" <?= $pfxVal === $prefix ? 'selected' : '' ?>><?= h($label) ?></option>
                                         <?php endforeach; ?>
                                     </select></td>
@@ -399,13 +329,6 @@ require_once __DIR__ . "/../../includes/header.php";
                                         <button type="button" onclick="convertSingleStudentHindi(<?= $sid ?>)" class="btn-action" style="height:32px; padding:0 8px; font-size:11px; background:#1f4e79;">Convert</button>
                                         <select id="st_sug_<?= $sid ?>" onchange="document.getElementById('st_hindi_<?= $sid ?>').value = this.value" class="select-box" style="display:none; height:32px; min-width:110px; font-size:11px; padding:0 4px;"><option value="">Choose</option></select>
                                     </div></td>
-                                    <td>
-                                        <?php if ($isGen): ?>
-                                            <strong style="color:#1f4e79;"><?= h($genDir) ?></strong>
-                                        <?php else: ?>
-                                            <span style="color:#94a3b8; font-style:italic;">Not Generated Yet</span>
-                                        <?php endif; ?>
-                                    </td>
                                     <td><?= h($perfLabel) ?> (<?= $pct !== null ? number_format($pct, 2) . '%' : '-' ?>)</td>
                                     <td>
                                         <?php if ($isGen): ?>
@@ -438,46 +361,6 @@ require_once __DIR__ . "/../../includes/header.php";
 </div>
 
 <script>
-async function convertDirectorNameToHindi() {
-    var englishInput = document.getElementById('director_name_input');
-    var hindiInput = document.getElementById('director_name_hindi_input');
-    var suggestions = document.getElementById('director_name_hindi_suggestions');
-    var convertButton = document.getElementById('convert_director_name_button');
-    var englishName = englishInput ? englishInput.value.trim() : '';
-
-    if (!englishName || !hindiInput || !convertButton) {
-        return;
-    }
-
-    convertButton.disabled = true;
-    convertButton.textContent = 'Converting...';
-
-    try {
-        var endpoint = 'https://inputtools.google.com/request?text=' + encodeURIComponent(englishName) + '&itc=hi-t-i0-und&num=5&ie=utf-8&oe=utf-8';
-        var response = await fetch(endpoint);
-        var data = await response.json();
-        var hindiSuggestions = data[1] && data[1][0] && data[1][0][1] ? data[1][0][1] : [];
-
-        if (data[0] !== 'SUCCESS' || !hindiSuggestions.length) {
-            throw new Error('No Hindi suggestion found');
-        }
-
-        hindiInput.value = hindiSuggestions[0];
-        suggestions.innerHTML = '<option value="">Choose spelling</option>';
-        hindiSuggestions.forEach(function (suggestion) {
-            var option = document.createElement('option');
-            option.value = suggestion;
-            option.textContent = suggestion;
-            suggestions.appendChild(option);
-        });
-        suggestions.style.display = hindiSuggestions.length > 1 ? 'block' : 'none';
-    } catch (error) {
-        alert('Hindi conversion could not be completed. Please enter the Hindi name manually.');
-    } finally {
-        convertButton.disabled = false;
-        convertButton.textContent = 'Convert';
-    }
-}
 
 async function convertSingleStudentHindi(studentId) {
     var hindiInput = document.getElementById('st_hindi_' + studentId);

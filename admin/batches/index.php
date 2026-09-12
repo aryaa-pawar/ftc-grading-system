@@ -61,6 +61,8 @@ try {
             commenced_date,
             completed_date,
             station,
+            director_name,
+            director_name_hindi,
             status,
             created_at,
             updated_at
@@ -470,6 +472,13 @@ require_once "../../includes/header.php";
 
                             <th>
 
+                                Assigned Director
+
+                            </th>
+
+
+                            <th>
+
                                 Status
 
                             </th>
@@ -571,7 +580,7 @@ require_once "../../includes/header.php";
 
 
 
-                                <!-- STATION -->
+                                 <!-- STATION -->
 
                                 <td class="station-cell">
 
@@ -585,7 +594,13 @@ require_once "../../includes/header.php";
 
                                 </td>
 
-
+                                <!-- ASSIGNED DIRECTOR -->
+                                <td>
+                                    <strong><?php echo htmlspecialchars($batch["director_name"] ?? "K. N. Mohan"); ?></strong>
+                                    <?php if (!empty($batch["director_name_hindi"])): ?>
+                                        <br><span style="font-size:12px; color:#64748b;">(<?php echo htmlspecialchars($batch["director_name_hindi"]); ?>)</span>
+                                    <?php endif; ?>
+                                </td>
 
                                 <!-- STATUS -->
                                 <?php
@@ -654,7 +669,7 @@ require_once "../../includes/header.php";
 
 
                             <td
-                                colspan="8"
+                                colspan="9"
                                 style="
                                     padding:35px;
                                     text-align:center;

@@ -21,7 +21,7 @@ $pdo = getDbConnection();
 
 // Fetch student details
 $stmt = $pdo->prepare("
-    SELECT s.*, b.batch_name, b.batch_number, b.commenced_date, b.completed_date, b.station
+    SELECT s.*, b.batch_name, b.batch_number, b.commenced_date, b.completed_date, b.station, b.director_name, b.director_name_hindi, b.director_signature_path
     FROM students s
     LEFT JOIN batches b ON b.batch_id = s.batch_id
     WHERE s.student_id = :sid AND (s.is_deleted = 0 OR s.is_deleted IS NULL)
@@ -41,12 +41,12 @@ $stmtRes = $pdo->prepare("
 $stmtRes->execute([':sid' => $studentId]);
 $resultData = $stmtRes->fetch(PDO::FETCH_ASSOC);
 
-// Handle director name updates if passed via GET/POST
-$activeDirectorEng = trim($_REQUEST['director_name'] ?? '');
-$activeDirectorHindi = trim($_REQUEST['director_name_hindi'] ?? '');
+// Determine active director name from assigned batch director first
+$activeDirectorEng = trim($student['director_name'] ?? $_REQUEST['director_name'] ?? '');
+$activeDirectorHindi = trim($student['director_name_hindi'] ?? $_REQUEST['director_name_hindi'] ?? '');
 
 if (empty($activeDirectorEng) || empty($activeDirectorHindi)) {
-    // Fetch global setting defaults if not passed
+    // Fetch global setting defaults if not passed or set in batch
     $stmtSet = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('director_name', 'director_name_hindi')");
     $stmtSet->execute();
     foreach ($stmtSet->fetchAll(PDO::FETCH_ASSOC) as $setting) {
@@ -133,7 +133,7 @@ if (empty($prefixKey)) $prefixKey = 'Mr.';
 $prefixMap = [
     'Mr.'   => ['en' => 'Mr.',   'hi' => 'श्री.'],
     'Ms.'   => ['en' => 'Ms.',   'hi' => 'कुमारी.'],
-    'Mrs.'  => ['en' => 'Mrs.',  'hi' => 'श्रीमती.'],
+    'Mrs.'  => ['en' => 'Mrs.',  'hi' => 'सौ.'],
     'Dr.'   => ['en' => 'Dr.',   'hi' => 'डॉ.'],
     'Shri'  => ['en' => 'Shri',  'hi' => 'श्री.'],
     'Smt.'  => ['en' => 'Smt.',  'hi' => 'श्रीमती.'],
@@ -429,6 +429,11 @@ $appBase = preg_replace('#/(admin|teacher|verification|includes)/.*$#i', '', $_S
                         Dated: <strong><?= h($todayEnglish) ?></strong>
                     </div>
                     <div class="footer-right">
+                        <?php if (!empty($student['director_signature_path']) && file_exists(__DIR__ . '/../../' . $student['director_signature_path'])): ?>
+                            <div style="margin-bottom: 2px;">
+                                <img src="<?= h($appBase . '/' . $student['director_signature_path']) ?>" alt="Director Signature" style="max-height: 55px; max-width: 160px; object-fit: contain; mix-blend-mode: multiply; filter: contrast(180%) brightness(108%);">
+                            </div>
+                        <?php endif; ?>
                         <strong>( <?= h($activeDirectorHindi) ?> )</strong><br>
                         <strong>प्रमुख, मौसम विज्ञान प्रशिक्षण संस्थान</strong><br><br>
                         <strong>( <?= h($activeDirectorEng) ?> )</strong><br>

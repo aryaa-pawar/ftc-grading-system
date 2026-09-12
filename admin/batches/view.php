@@ -126,7 +126,10 @@ if ($batchId <= 0) {
                 batch_name,
                 station,
                 commenced_date,
-                completed_date
+                completed_date,
+                director_name,
+                director_name_hindi,
+                director_signature_path
             FROM batches
             WHERE batch_id = :batch_id
             LIMIT 1
@@ -887,6 +890,33 @@ body {
                         <?php echo formatDateIndian(
                             $batch['completed_date']
                         ); ?>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ASSIGNED DIRECTOR -->
+
+                <div class="detail-box">
+
+                    <div class="detail-label">
+
+                        Assigned Director
+
+                    </div>
+
+                    <div class="detail-value" style="font-size:16px;">
+
+                        <strong><?php echo h($batch['director_name'] ?? 'K. N. Mohan'); ?></strong>
+                        <?php if (!empty($batch['director_name_hindi'])): ?>
+                            <br><span style="font-size:13px; color:#555;">(<?php echo h($batch['director_name_hindi']); ?>)</span>
+                        <?php endif; ?>
+                        <?php if (!empty($batch['director_signature_path']) && file_exists(__DIR__ . '/../../' . $batch['director_signature_path'])): ?>
+                            <div style="margin-top:6px;">
+                                <img src="../../<?php echo h($batch['director_signature_path']); ?>" alt="Signature" style="max-height:45px; max-width:140px; border:1px solid #cbd5e1; padding:2px; background:#fff; border-radius:3px; mix-blend-mode: multiply; filter: contrast(180%) brightness(108%);">
+                            </div>
+                        <?php endif; ?>
 
                     </div>
 

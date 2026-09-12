@@ -59,24 +59,6 @@ $directorNameHindi = isset($_GET["director_name_hindi"]) && trim($_GET["director
     ? trim($_GET["director_name_hindi"])
     : null;
 
-if (empty($directorName) || empty($directorNameHindi)) {
-    try {
-        $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('director_name', 'director_name_hindi')");
-        $stmt->execute();
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $setting) {
-            if (empty($directorName) && $setting['setting_key'] === 'director_name') {
-                $directorName = trim($setting['setting_value'] ?? '');
-            } elseif (empty($directorNameHindi) && $setting['setting_key'] === 'director_name_hindi') {
-                $directorNameHindi = trim($setting['setting_value'] ?? '');
-            }
-        }
-        $directorName = $directorName ?: "K. N. Mohan";
-        $directorNameHindi = $directorNameHindi ?: $directorName;
-    } catch (PDOException $e) {
-        $directorName = "K. N. Mohan";
-    }
-}
-
 $student = null;
 $tabulationRows = [];
 $resultRegister = null;
@@ -103,7 +85,10 @@ if ($studentId <= 0) {
                 b.batch_name,
                 b.commenced_date,
                 b.completed_date,
-                b.station
+                b.station,
+                b.director_name,
+                b.director_name_hindi,
+                b.director_signature_path
             FROM students s
             LEFT JOIN batches b ON b.batch_id = s.batch_id
             WHERE s.student_id = :student_id
@@ -116,6 +101,28 @@ if ($studentId <= 0) {
         if (!$student) {
             $errorMessage = "Student not found.";
         } else {
+            // Determine Director Name from batch first, fallback to GET/settings
+            if (empty($directorName)) {
+                $directorName = !empty($student['director_name']) ? $student['director_name'] : null;
+            }
+            if (empty($directorNameHindi)) {
+                $directorNameHindi = !empty($student['director_name_hindi']) ? $student['director_name_hindi'] : null;
+            }
+            if (empty($directorName) || empty($directorNameHindi)) {
+                try {
+                    $stmtSet = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('director_name', 'director_name_hindi')");
+                    $stmtSet->execute();
+                    foreach ($stmtSet->fetchAll(PDO::FETCH_ASSOC) as $setting) {
+                        if (empty($directorName) && $setting['setting_key'] === 'director_name') {
+                            $directorName = trim($setting['setting_value'] ?? '');
+                        } elseif (empty($directorNameHindi) && $setting['setting_key'] === 'director_name_hindi') {
+                            $directorNameHindi = trim($setting['setting_value'] ?? '');
+                        }
+                    }
+                } catch (PDOException $e) {}
+            }
+            if (empty($directorName)) $directorName = "K. N. Mohan";
+            if (empty($directorNameHindi)) $directorNameHindi = "के.एन.मोहन";
             // Load paper scores from v_tabulation
             $stmt = $pdo->prepare("
                 SELECT
@@ -365,7 +372,7 @@ $performanceGrade = getPerformanceGrade($percentage);
         background: #ffffff;
         padding: 10mm 12mm;
         box-sizing: border-box;
-        border: 2px solid #a82424;
+        border: 2px solid #1f4e79;
         box-shadow: 0 0 10px rgba(0,0,0,0.15);
         position: relative;
         display: flex;
@@ -543,7 +550,7 @@ $performanceGrade = getPerformanceGrade($percentage);
 
         .certificate-container {
             margin: 0 auto !important;
-            border: 2px solid #a82424 !important;
+            border: 2px solid #1f4e79 !important;
             box-shadow: none !important;
             width: 198mm !important;
             height: 285mm !important;
@@ -731,8 +738,10 @@ $performanceGrade = getPerformanceGrade($percentage);
                 <strong>HEAD - METEOROLOGICAL TRAINING INSTITUTE</strong>
             </td>
             <td class="sig-right" style="width: 45%;">
-                <div style="margin-bottom: 25px; min-height: 40px;">
-                    <!-- Signature space -->
+                <div style="margin-bottom: 5px; min-height: 45px; display: flex; justify-content: flex-end; align-items: flex-end;">
+                    <?php if (!empty($student['director_signature_path']) && file_exists(__DIR__ . '/../../' . $student['director_signature_path'])): ?>
+                        <img src="../../<?php echo h($student['director_signature_path']); ?>" alt="Director Signature" style="max-height: 45px; max-width: 150px; object-fit: contain; mix-blend-mode: multiply; filter: contrast(180%) brightness(108%);">
+                    <?php endif; ?>
                 </div>
                 <strong>( <?php echo h($directorNameHindi); ?> )</strong><br>
                 <span style="font-size: 12px; font-weight: bold;">(<?php echo h($directorName); ?>)</span><br>

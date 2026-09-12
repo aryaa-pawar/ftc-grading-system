@@ -78,6 +78,7 @@ $students = [];
 
 $results = [];
 $successMessage = "";
+$errorMessage = "";
 $directorName = "";
 $directorNameHindi = "";
 
@@ -99,66 +100,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['lock_batch']) || iss
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_director'])) {
-    $newDir = trim($_POST['director_name'] ?? '');
-    $newDirHindi = trim($_POST['director_name_hindi'] ?? '');
-    if ($newDir !== '' || $newDirHindi !== '') {
-        try {
-            $stmt = $pdo->prepare("
-                INSERT INTO system_settings (setting_key, setting_value)
-                VALUES ('director_name', :insert_value)
-                ON DUPLICATE KEY UPDATE setting_value = :update_value
-            ");
-            $stmt->execute([
-                ':insert_value' => $newDir,
-                ':update_value' => $newDir
-            ]);
-            $stmt = $pdo->prepare("
-                INSERT INTO system_settings (setting_key, setting_value)
-                VALUES ('director_name_hindi', :insert_value)
-                ON DUPLICATE KEY UPDATE setting_value = :update_value
-            ");
-            $stmt->execute([
-                ':insert_value' => $newDirHindi,
-                ':update_value' => $newDirHindi
-            ]);
-            $directorName = $newDir;
-            $directorNameHindi = $newDirHindi;
-            $successMessage = "Director Name saved successfully!";
-        } catch (PDOException $e) {
-            $errorMessage = "Unable to save Director Name: " . $e->getMessage();
-        }
-    }
-}
-
-if (empty($directorName) || empty($directorNameHindi)) {
-    try {
-        $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('director_name', 'director_name_hindi')");
-        $stmt->execute();
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $setting) {
-            if ($setting['setting_key'] === 'director_name') {
-                $directorName = trim($setting['setting_value'] ?? '');
-            } elseif ($setting['setting_key'] === 'director_name_hindi') {
-                $directorNameHindi = trim($setting['setting_value'] ?? '');
-            }
-        }
-        if ($directorName === '') {
-            $directorName = "K. N. Mohan";
-        }
-    } catch (PDOException $e) {
-        $directorName = "K. N. Mohan";
-    }
-}
-
-$errorMessage = isset($errorMessage) ? $errorMessage : "";
-
-
-/*
-|--------------------------------------------------------------------------
-| LOAD BATCHES
-|--------------------------------------------------------------------------
-*/
-
 try {
 
     $stmt = $pdo->query("
@@ -169,7 +110,9 @@ try {
             commenced_date,
             completed_date,
             station,
-            is_locked
+            is_locked,
+            director_name,
+            director_name_hindi
 
         FROM batches
 
@@ -213,28 +156,29 @@ if (
 |--------------------------------------------------------------------------
 | CURRENT BATCH
 |--------------------------------------------------------------------------
+| DEFAULT BATCH & CURRENT BATCH
+|--------------------------------------------------------------------------
 */
+
+if ($selectedBatchId <= 0 && !empty($batches)) {
+    $selectedBatchId = (int)$batches[0]["batch_id"];
+}
 
 $currentBatch = null;
 
-
-foreach (
-    $batches as $batch
-) {
-
-    if (
-        (int)$batch["batch_id"]
-        ===
-        $selectedBatchId
-    ) {
-
-        $currentBatch =
-            $batch;
-
+foreach ($batches as $batch) {
+    if ((int)$batch["batch_id"] === $selectedBatchId) {
+        $currentBatch = $batch;
         break;
-
     }
+}
 
+if ($currentBatch) {
+    $directorName = !empty($currentBatch['director_name']) ? $currentBatch['director_name'] : "K. N. Mohan";
+    $directorNameHindi = !empty($currentBatch['director_name_hindi']) ? $currentBatch['director_name_hindi'] : "के.एन.मोहन";
+} else {
+    $directorName = "K. N. Mohan";
+    $directorNameHindi = "के.एन.मोहन";
 }
 
 
@@ -931,7 +875,7 @@ View student results for the selected batch.
 </div>
 <?php endif; ?>
 
-<?php if ($errorMessage !== ""): ?>
+<?php if (!empty($errorMessage)): ?>
 <div class="error-box">
 <?= h($errorMessage) ?>
 </div>
@@ -962,49 +906,12 @@ View student results for the selected batch.
             </select>
         </div>
 
-        <!-- DIRECTOR NAME & SAVE BUTTON -->
+        <!-- ASSIGNED DIRECTOR INFO -->
         <div class="filter-field">
-            <label style="font-weight:bold; font-size:13px; margin-bottom:6px; display:block;">Director Name (Hindi / English):</label>
-            <div style="display:flex; gap:8px;">
-                <input
-                    type="text"
-                    id="director_name_input"
-                    name="director_name"
-                    value="<?= h($directorName) ?>"
-                    placeholder="Enter Director Name"
-                    style="height:38px; border:1px solid #cccccc; border-radius:4px; padding:0 12px; font-size:13px; min-width:220px;"
-                >
-                <button
-                    type="button"
-                    id="convert_director_name_button"
-                    onclick="convertDirectorNameToHindi()"
-                    style="height:38px; background:#1f4e79; color:#ffffff; border:none; border-radius:4px; padding:0 12px; font-weight:bold; cursor:pointer; font-size:13px;"
-                >
-                    Convert
-                </button>
-                <select
-                    id="director_name_hindi_suggestions"
-                    onchange="document.getElementById('director_name_hindi_input').value = this.value"
-                    style="display:none; height:38px; border:1px solid #cccccc; border-radius:4px; padding:0 8px; font-size:13px; min-width:180px;"
-                >
-                    <option value="">Choose spelling</option>
-                </select>
-                <input
-                    type="text"
-                    id="director_name_hindi_input"
-                    name="director_name_hindi"
-                    value="<?= h($directorNameHindi) ?>"
-                    placeholder="नाम हिंदी में"
-                    style="height:38px; border:1px solid #cccccc; border-radius:4px; padding:0 12px; font-size:13px; min-width:220px;"
-                >
-                <button
-                    type="submit"
-                    name="save_director"
-                    value="1"
-                    style="height:38px; background:#27ae60; color:#ffffff; border:none; border-radius:4px; padding:0 18px; font-weight:bold; cursor:pointer; font-size:13px;"
-                >
-                    Save
-                </button>
+            <label style="font-weight:bold; font-size:13px; margin-bottom:6px; display:block;">Assigned Director:</label>
+            <div style="height:38px; display:flex; align-items:center; padding:0 12px; background:#eaf2f8; border:1px solid #c8d9e6; border-radius:4px; font-size:13px; color:#1f4e79;">
+                <strong><?= h($directorName) ?></strong>&nbsp;(<?= h($directorNameHindi) ?>)
+                <a href="../batches/edit.php?id=<?= $selectedBatchId ?>" style="margin-left:10px; color:#0284c7; text-decoration:underline; font-weight:bold; font-size:12px;">⚙️ Edit in Batch</a>
             </div>
         </div>
 
@@ -1013,7 +920,7 @@ View student results for the selected batch.
             <?php if (!empty($currentBatch['is_locked'])): ?>
                 <button type="submit" name="unlock_batch" value="1" style="height:38px; background:#198754; color:#ffffff; border:none; border-radius:4px; padding:0 14px; font-weight:bold; cursor:pointer; font-size:13px;">Unlock Marks</button>
             <?php else: ?>
-                <button type="submit" name="lock_batch" value="1" style="height:38px; background:#c0392b; color:#ffffff; border:none; border-radius:4px; padding:0 14px; font-weight:bold; cursor:pointer; font-size:13px;">Lock Marks</button>
+                <button type="submit" name="lock_batch" value="1" style="height:38px; background:#475569; color:#ffffff; border:none; border-radius:4px; padding:0 14px; font-weight:bold; cursor:pointer; font-size:13px;">Lock Marks</button>
             <?php endif; ?>
         </div>
 
@@ -1441,11 +1348,7 @@ endforeach;
 
 <script>
 function openPrintResult(studentId) {
-    var dirInput = document.getElementById('director_name_input');
-    var dirHindiInput = document.getElementById('director_name_hindi_input');
-    var dirName = dirInput ? dirInput.value.trim() : 'K. N. Mohan';
-    var dirNameHindi = dirHindiInput ? dirHindiInput.value.trim() : '';
-    var url = 'student_result.php?student_id=' + studentId + '&director_name=' + encodeURIComponent(dirName) + '&director_name_hindi=' + encodeURIComponent(dirNameHindi);
+    var url = 'student_result.php?student_id=' + studentId;
     window.open(url, '_blank');
 }
 
